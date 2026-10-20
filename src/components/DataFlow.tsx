@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef } from 'react';
+import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import * as THREE from 'three';
@@ -45,12 +45,16 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   const instancedRef = useRef<THREE.InstancedMesh>(null);
   const heroPacketRef = useRef<THREE.Group>(null);
   const progressRef = useRef<number[]>(
-    Array.from({ length: DATA_FLOW_PATHS.length * PARTICLES_PER_PATH }, (_, i) => (i % PARTICLES_PER_PATH) / PARTICLES_PER_PATH)
+    Array.from(
+      { length: DATA_FLOW_PATHS.length * PARTICLES_PER_PATH },
+      (_, i) => (i % PARTICLES_PER_PATH) / PARTICLES_PER_PATH
+    )
   );
   const heroProgressRef = useRef(0);
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const tempPos = useMemo(() => new THREE.Vector3(), []);
+  const highlightColor = useMemo(() => new THREE.Color('#00F0FF'), []);
 
   const curves = useMemo<CurveItem[]>(() => {
     return DATA_FLOW_PATHS.map((path) => {
@@ -76,7 +80,30 @@ export const DataFlow: React.FC<DataFlowProps> = ({
     });
   }, []);
 
-  // Determine which paths are currently emphasized
+  // Initialize instance matrices and colors before first shader compilation
+  useLayoutEffect(() => {
+    if (!instancedRef.current) return;
+    let idx = 0;
+    for (let pIdx = 0; pIdx < curves.length; pIdx++) {
+      const item = curves[pIdx];
+      for (let k = 0; k < PARTICLES_PER_PATH; k++) {
+        const prog = progressRef.current[idx];
+        item.curve.getPointAt(prog, tempPos);
+        tempPos.y += Math.sin(prog * Math.PI) * 0.18;
+        dummy.position.copy(tempPos);
+        dummy.scale.setScalar(0.14);
+        dummy.updateMatrix();
+        instancedRef.current.setMatrixAt(idx, dummy.matrix);
+        instancedRef.current.setColorAt(idx, item.color);
+        idx++;
+      }
+    }
+    instancedRef.current.instanceMatrix.needsUpdate = true;
+    if (instancedRef.current.instanceColor) {
+      instancedRef.current.instanceColor.needsUpdate = true;
+    }
+  }, [curves, dummy, tempPos]);
+
   const activeDistrict = highlightedFlowDistrict || selectedDistrict || hoveredDistrict;
 
   const isPathHighlighted = (c: CurveItem) => {
@@ -95,7 +122,7 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   useFrame((_, delta) => {
     if (!instancedRef.current) return;
 
-    const effectiveDelta = isPaused || reducedMotion ? 0 : delta;
+    const effectiveDelta = isPaused || reducedMotion ? 0 : Math.min(delta, 0.1);
 
     let instanceIdx = 0;
     for (let pIdx = 0; pIdx < curves.length; pIdx++) {
@@ -115,11 +142,10 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         progressRef.current[instanceIdx] = currentProg;
 
         item.curve.getPointAt(currentProg, tempPos);
-        // Add slight vertical arc in the middle of each segment
         tempPos.y += Math.sin(currentProg * Math.PI) * 0.18;
 
         dummy.position.copy(tempPos);
-        const scaleBase = highlighted ? 0.16 : 0.11;
+        const scaleBase = highlighted ? 0.18 : 0.13;
         const pulse = 1 + Math.sin(currentProg * Math.PI) * 0.35;
         dummy.scale.setScalar(scaleBase * pulse);
         dummy.updateMatrix();
@@ -127,7 +153,7 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         instancedRef.current.setMatrixAt(instanceIdx, dummy.matrix);
         instancedRef.current.setColorAt(
           instanceIdx,
-          highlighted ? new THREE.Color('#00F0FF') : item.color
+          highlighted ? highlightColor : item.color
         );
         instanceIdx++;
       }
@@ -168,18 +194,18 @@ export const DataFlow: React.FC<DataFlowProps> = ({
             {/* Subtle Dark Track Bed */}
             <Line
               points={item.points}
-              color={isNight ? '#1E293B' : '#94A3B8'}
+              color={isNight ? '#1E3A6E' : '#94A3B8'}
               lineWidth={highlighted ? 4.5 : 2.5}
               transparent
-              opacity={dimmed ? 0.25 : 0.65}
+              opacity={dimmed ? 0.3 : 0.75}
             />
             {/* Glowing Data Core Conduit */}
             <Line
               points={item.points}
               color={highlighted ? '#00F0FF' : item.hex}
-              lineWidth={highlighted ? 3.2 : 1.6}
+              lineWidth={highlighted ? 3.2 : 1.8}
               transparent
-              opacity={dimmed ? 0.2 : highlighted ? 0.98 : 0.72}
+              opacity={dimmed ? 0.25 : highlighted ? 1.0 : 0.82}
             />
           </group>
         );
@@ -191,21 +217,21 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         args={[undefined, undefined, DATA_FLOW_PATHS.length * PARTICLES_PER_PATH]}
       >
         <sphereGeometry args={[1, 12, 12]} />
-        <meshBasicMaterial toneMapped={false} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </instancedMesh>
 
       {/* Hero Featured Data Packet */}
       <group ref={heroPacketRef} position={[-10, 0.5, 8]}>
         <mesh>
-          <sphereGeometry args={[0.24, 16, 16]} />
+          <sphereGeometry args={[0.26, 16, 16]} />
           <meshBasicMaterial color="#FFFFFF" toneMapped={false} />
         </mesh>
         <mesh>
-          <sphereGeometry args={[0.42, 16, 16]} />
+          <sphereGeometry args={[0.46, 16, 16]} />
           <meshBasicMaterial
             color="#00F0FF"
             transparent
-            opacity={0.45}
+            opacity={0.55}
             toneMapped={false}
           />
         </mesh>

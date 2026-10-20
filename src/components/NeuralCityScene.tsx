@@ -3,11 +3,10 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
-  OrthographicCamera,
   OrbitControls,
-  Grid,
   Stars,
   RoundedBox,
+  Edges,
 } from '@react-three/drei';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
@@ -48,7 +47,6 @@ const AmbientCityStructures: React.FC<{ isNight: boolean }> = ({ isNight }) => {
 
   const blocks = useMemo(() => {
     const items: { pos: [number, number, number]; scale: [number, number, number] }[] = [
-      // Outer perimeter data banks & substations
       { pos: [-14.5, 0.4, -8], scale: [1.2, 0.8, 1.2] },
       { pos: [-14.5, 0.65, -5.5], scale: [1.0, 1.3, 1.0] },
       { pos: [-14.5, 0.45, 2.5], scale: [1.1, 0.9, 1.4] },
@@ -78,7 +76,7 @@ const AmbientCityStructures: React.FC<{ isNight: boolean }> = ({ isNight }) => {
       meshRef.current!.setMatrixAt(i, dummy.matrix);
 
       dummy.position.set(b.pos[0], b.pos[1] * 2 + 0.08, b.pos[2]);
-      dummy.scale.set(0.18, 0.08, 0.18);
+      dummy.scale.set(0.2, 0.1, 0.2);
       dummy.updateMatrix();
       beaconRef.current!.setMatrixAt(i, dummy.matrix);
     });
@@ -92,9 +90,9 @@ const AmbientCityStructures: React.FC<{ isNight: boolean }> = ({ isNight }) => {
       <instancedMesh ref={meshRef} args={[undefined, undefined, blocks.length]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial
-          color={isNight ? '#0D1B38' : '#CBD5E1'}
-          roughness={0.5}
-          metalness={0.35}
+          color={isNight ? '#152A54' : '#CBD5E1'}
+          roughness={0.45}
+          metalness={0.3}
         />
       </instancedMesh>
       <instancedMesh ref={beaconRef} args={[undefined, undefined, blocks.length]}>
@@ -124,21 +122,26 @@ const CameraRig: React.FC<CameraRigProps> = ({
   const { camera, size } = useThree();
 
   const baseZoom = useMemo(() => {
-    if (size.width < 640) return 16;
-    if (size.width < 1024) return 22;
-    return 29;
+    if (size.width < 640) return 17;
+    if (size.width < 1024) return 23;
+    return 30;
   }, [size.width]);
 
-  const targetVec = useMemo(() => new THREE.Vector3(0, 0.5, 0), []);
-  const desiredTarget = useMemo(() => new THREE.Vector3(0, 0.5, 0), []);
+  const baseOffsetX = size.width >= 1024 ? -2.2 : 0;
+  const baseOffsetZ = size.width >= 1024 ? 2.2 : 0;
+
+  const targetVec = useMemo(() => new THREE.Vector3(baseOffsetX, 0.5, baseOffsetZ), [baseOffsetX, baseOffsetZ]);
+  const desiredTarget = useMemo(() => new THREE.Vector3(baseOffsetX, 0.5, baseOffsetZ), [baseOffsetX, baseOffsetZ]);
 
   useEffect(() => {
-    if (!controlsRef.current) return;
-    // Reset camera position & orientation on reset trigger
     camera.position.set(26, 22, 26);
-    controlsRef.current.target.set(0, 0.5, 0);
-    controlsRef.current.update();
-  }, [cameraResetTrigger, camera]);
+    camera.lookAt(baseOffsetX, 0.5, baseOffsetZ);
+    camera.updateProjectionMatrix();
+    if (controlsRef.current) {
+      controlsRef.current.target.set(baseOffsetX, 0.5, baseOffsetZ);
+      controlsRef.current.update();
+    }
+  }, [cameraResetTrigger, camera, baseOffsetX, baseOffsetZ]);
 
   useFrame((_, delta) => {
     if (!controlsRef.current) return;
@@ -147,17 +150,17 @@ const CameraRig: React.FC<CameraRigProps> = ({
       const d = DISTRICT_MAP[selectedDistrict];
       desiredTarget.set(d.position[0] * 0.65, 0.8, d.position[2] * 0.65);
     } else {
-      desiredTarget.set(0, 0.5, 0);
+      desiredTarget.set(baseOffsetX, 0.5, baseOffsetZ);
     }
 
-    const lerpSpeed = reducedMotion ? 1 : Math.min(1, delta * 5.5);
+    const lerpSpeed = reducedMotion ? 1 : Math.min(1, Math.min(delta, 0.1) * 5.5);
     targetVec.lerp(desiredTarget, lerpSpeed);
     controlsRef.current.target.copy(targetVec);
 
     // Smooth Orthographic zoom
-    const focusMultiplier = selectedDistrict ? 1.24 : 1.0;
+    const focusMultiplier = selectedDistrict ? 1.25 : 1.0;
     const rawTargetZoom = (baseZoom + cameraZoomDelta * 5) * focusMultiplier;
-    const clampedZoom = THREE.MathUtils.clamp(rawTargetZoom, 13, 56);
+    const clampedZoom = THREE.MathUtils.clamp(rawTargetZoom, 14, 58);
 
     if (Math.abs(camera.zoom - clampedZoom) > 0.05) {
       camera.zoom = THREE.MathUtils.lerp(camera.zoom, clampedZoom, lerpSpeed);
@@ -165,9 +168,9 @@ const CameraRig: React.FC<CameraRigProps> = ({
     }
 
     // Apply subtle azimuth offset when user clicks Rotate buttons
-    const currentAzimuth = controlsRef.current.getAzimuthalAngle();
-    const defaultAzimuth = Math.PI / 4 + cameraAzimuthDelta * 0.28;
     if (!selectedDistrict && Math.abs(cameraAzimuthDelta) > 0.001) {
+      const currentAzimuth = controlsRef.current.getAzimuthalAngle();
+      const defaultAzimuth = Math.PI / 4 + cameraAzimuthDelta * 0.28;
       const nextAz = THREE.MathUtils.lerp(currentAzimuth, defaultAzimuth, lerpSpeed * 0.5);
       controlsRef.current.setAzimuthalAngle(nextAz);
     }
@@ -179,13 +182,14 @@ const CameraRig: React.FC<CameraRigProps> = ({
     <OrbitControls
       ref={controlsRef}
       makeDefault
+      target={[0, 0.5, 0]}
       enableDamping={!reducedMotion}
       dampingFactor={0.07}
       enablePan={true}
-      minZoom={13}
-      maxZoom={56}
+      minZoom={14}
+      maxZoom={58}
       minPolarAngle={Math.PI / 6}
-      maxPolarAngle={Math.PI / 2.65}
+      maxPolarAngle={Math.PI / 2.6}
       minAzimuthAngle={-Math.PI / 2}
       maxAzimuthAngle={Math.PI}
       rotateSpeed={0.55}
@@ -233,6 +237,17 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
     }
   }, []);
 
+  // Safety timeout: if WebGL fails to initialize within 4s (e.g. blocked GPU), fall back gracefully to 2D Isometric Schematic
+  useEffect(() => {
+    if (sceneReady || !webglSupported) return;
+    const timer = setTimeout(() => {
+      if (!sceneReady) {
+        setWebglSupported(false);
+      }
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [sceneReady, webglSupported]);
+
   if (!webglSupported || forceSimplified2D) {
     return (
       <IsometricCityFallback
@@ -266,16 +281,25 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
       )}
 
       <Canvas
+        orthographic
         shadows
         dpr={[1, 2]}
+        camera={{
+          position: [26, 22, 26],
+          zoom: 30,
+          near: -100,
+          far: 200,
+        }}
         gl={{
           antialias: true,
           alpha: true,
           powerPreference: 'high-performance',
         }}
-        onCreated={({ gl }) => {
+        onCreated={({ gl, camera }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = isNight ? 1.15 : 1.0;
+          gl.toneMappingExposure = isNight ? 1.25 : 1.05;
+          camera.lookAt(0, 0.5, 0);
+          camera.updateProjectionMatrix();
           setSceneReady(true);
         }}
         onPointerMissed={() => {
@@ -283,15 +307,6 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
         }}
       >
         <Suspense fallback={null}>
-          {/* Isometric Orthographic Camera (~35.26 deg elevation) */}
-          <OrthographicCamera
-            makeDefault
-            position={[26, 22, 26]}
-            zoom={29}
-            near={-100}
-            far={200}
-          />
-
           <CameraRig
             selectedDistrict={selectedDistrict}
             cameraZoomDelta={cameraZoomDelta}
@@ -300,18 +315,22 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
             reducedMotion={reducedMotion}
           />
 
-          {/* Subtle Atmospheric Fog */}
-          <fog attach="fog" args={[isNight ? '#040814' : '#E2E8F0', 48, 125]} />
-
-          {/* Lighting Setup */}
+          {/* Lighting Setup — Bright, crisp isometric diorama illumination */}
           <ambientLight
-            intensity={isNight ? 0.65 : 1.4}
-            color={isNight ? '#93C5FD' : '#FFFFFF'}
+            intensity={isNight ? 1.15 : 1.6}
+            color={isNight ? '#BFDBFE' : '#FFFFFF'}
+          />
+          <hemisphereLight
+            args={[
+              isNight ? '#38BDF8' : '#FFFFFF',
+              isNight ? '#0F172A' : '#CBD5E1',
+              isNight ? 0.85 : 0.6,
+            ]}
           />
           <directionalLight
             castShadow
-            position={[18, 32, 16]}
-            intensity={isNight ? 1.35 : 2.1}
+            position={[20, 34, 18]}
+            intensity={isNight ? 1.85 : 2.2}
             color={isNight ? '#E0F2FE' : '#FFFBEB'}
             shadow-mapSize={[1024, 1024]}
             shadow-camera-left={-22}
@@ -319,23 +338,29 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
             shadow-camera-top={22}
             shadow-camera-bottom={-22}
           />
+          <directionalLight
+            position={[-18, 20, -14]}
+            intensity={isNight ? 0.75 : 0.5}
+            color="#A855F7"
+          />
+
           {/* Accent Point Lights for Core & Data Flow */}
           <pointLight
             position={[0.5, 5, 0]}
-            intensity={isNight ? 2.4 : 0.8}
-            distance={18}
+            intensity={isNight ? 3.0 : 0.8}
+            distance={22}
             color="#EC4899"
           />
           <pointLight
             position={[-8, 4, -2]}
-            intensity={isNight ? 1.8 : 0.6}
-            distance={16}
+            intensity={isNight ? 2.2 : 0.6}
+            distance={18}
             color="#00F0FF"
           />
           <pointLight
             position={[5.5, 4, -8.5]}
-            intensity={isNight ? (trainingMode ? 3.2 : 1.8) : 0.8}
-            distance={16}
+            intensity={isNight ? (trainingMode ? 3.8 : 2.2) : 0.8}
+            distance={18}
             color="#8B5CF6"
           />
 
@@ -344,7 +369,7 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
             <Stars
               radius={55}
               depth={35}
-              count={900}
+              count={800}
               factor={2.4}
               saturation={0.5}
               fade
@@ -356,40 +381,27 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
           <group position={[0, -0.35, 0]}>
             <RoundedBox
               args={[34, 0.7, 32]}
-              radius={0.35}
-              smoothness={3}
+              radius={0.25}
+              smoothness={2}
               receiveShadow
             >
               <meshStandardMaterial
-                color={isNight ? '#060D1F' : '#CBD5E1'}
-                roughness={0.75}
+                color={isNight ? '#081226' : '#CBD5E1'}
+                roughness={0.65}
                 metalness={0.25}
               />
             </RoundedBox>
-
-            {/* Glowing Perimeter Rim around the City Island */}
-            <mesh position={[0, 0.36, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <ringGeometry args={[21.5, 21.8, 4]} />
-              <meshBasicMaterial
-                color="#00F0FF"
-                transparent
-                opacity={isNight ? 0.25 : 0.15}
-              />
-            </mesh>
           </group>
 
-          {/* Abstract Digital Coordinate Grid */}
-          <Grid
-            position={[0, 0.01, 0]}
-            args={[34, 32]}
-            cellSize={1.5}
-            cellThickness={0.6}
-            cellColor={isNight ? '#0F244A' : '#94A3B8'}
-            sectionSize={6}
-            sectionThickness={1.1}
-            sectionColor={isNight ? '#1D4ED8' : '#64748B'}
-            fadeDistance={42}
-            fadeStrength={1.2}
+          {/* Crisp Isometric Coordinate Grid across the entire City Island */}
+          <gridHelper
+            args={[
+              32,
+              32,
+              isNight ? '#0ea5e9' : '#64748B',
+              isNight ? '#13284c' : '#94A3B8',
+            ]}
+            position={[0, 0.02, 0]}
           />
 
           {/* Peripheral Micro-Structures */}
