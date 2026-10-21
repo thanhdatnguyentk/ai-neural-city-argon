@@ -2,13 +2,20 @@
 
 import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Line } from '@react-three/drei';
+import { Line, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { DATA_FLOW_PATHS, DistrictId } from '@/data/districts';
 import {
   DistrictMasteryMetrics,
   computeDistrictParticleSpeedMultiplier,
 } from '@/hooks/useRoadmapProgress';
+import {
+  WorkloadPresetId,
+  BottleneckScenarioId,
+  WORKLOAD_PRESET_MAP,
+  BOTTLENECK_SCENARIO_MAP,
+  CONDUIT_PROTOCOL_LABELS,
+} from '@/data/bottleneck-scenarios';
 
 interface DataFlowProps {
   selectedDistrict: DistrictId | null;
@@ -22,6 +29,9 @@ interface DataFlowProps {
   reducedMotion: boolean;
   allDistrictsMastery?: Record<DistrictId, DistrictMasteryMetrics>;
   isSingularityMode?: boolean;
+  activeWorkload?: WorkloadPresetId;
+  activeBottleneck?: BottleneckScenarioId;
+  isBlueprintMode?: boolean;
 }
 
 interface CurveItem {
@@ -49,6 +59,9 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   reducedMotion,
   allDistrictsMastery,
   isSingularityMode = false,
+  activeWorkload = 'multimodal-vision',
+  activeBottleneck = 'none',
+  isBlueprintMode = false,
 }) => {
   const instancedRef = useRef<THREE.InstancedMesh>(null);
   const heroPacketRef = useRef<THREE.Group>(null);
@@ -64,6 +77,18 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   const tempPos = useMemo(() => new THREE.Vector3(), []);
   const highlightColor = useMemo(() => new THREE.Color('#00F0FF'), []);
   const overdriveColor = useMemo(() => new THREE.Color('#FDE047'), []);
+  const bottleneckColor = useMemo(() => new THREE.Color('#EF4444'), []);
+
+  const workloadSpec =
+    WORKLOAD_PRESET_MAP[activeWorkload] ||
+    WORKLOAD_PRESET_MAP['multimodal-vision'];
+  const workloadColor = useMemo(
+    () => new THREE.Color(workloadSpec.particleColorHex),
+    [workloadSpec.particleColorHex]
+  );
+  const bottleneckSpec =
+    BOTTLENECK_SCENARIO_MAP[activeBottleneck] ||
+    BOTTLENECK_SCENARIO_MAP['none'];
 
   const curves = useMemo<CurveItem[]>(() => {
     return DATA_FLOW_PATHS.map((path) => {
@@ -125,6 +150,9 @@ export const DataFlow: React.FC<DataFlowProps> = ({
     if (trainingMode && (c.to === 'training-cluster' || c.from === 'training-cluster')) {
       return true;
     }
+    if (workloadSpec.activePathIds.includes(c.id)) {
+      return true;
+    }
     return false;
   };
 
@@ -155,12 +183,22 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         isSingularityMode ||
         Boolean(fromMetrics?.isMastered || toMetrics?.isMastered);
 
+      const isWorkloadActivePath = workloadSpec.activePathIds.includes(item.id);
+      const isBottleneckPath =
+        bottleneckSpec.targetDistrictId !== null &&
+        (item.to === bottleneckSpec.targetDistrictId ||
+          item.from === bottleneckSpec.targetDistrictId);
+
+      const bottleneckSpeedFactor = isBottleneckPath ? 0.15 : 1.0;
+
       const pathSpeed =
         0.24 *
         flowSpeed *
+        workloadSpec.speedMultiplier *
         masteryMultiplier *
-        (highlighted ? 1.45 : 1.0) *
-        (trainingMode && isTrainingPath ? 1.65 : 1.0);
+        bottleneckSpeedFactor *
+        (highlighted ? 1.35 : 0.65) *
+        (trainingMode && isTrainingPath ? 1.5 : 1.0);
 
       for (let k = 0; k < PARTICLES_PER_PATH; k++) {
         const currentProg =
@@ -171,11 +209,13 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         tempPos.y += Math.sin(currentProg * Math.PI) * 0.18;
 
         dummy.position.copy(tempPos);
-        const scaleBase = isOverdrive
+        const scaleBase = isBottleneckPath
+          ? 0.21
+          : isOverdrive
           ? 0.2
           : highlighted
           ? 0.18
-          : 0.13 + (masteryMultiplier - 1) * 0.04;
+          : 0.12 + (masteryMultiplier - 1) * 0.04;
         const pulse = 1 + Math.sin(currentProg * Math.PI) * 0.35;
         dummy.scale.setScalar(scaleBase * pulse);
         dummy.updateMatrix();
@@ -183,7 +223,11 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         instancedRef.current.setMatrixAt(instanceIdx, dummy.matrix);
         instancedRef.current.setColorAt(
           instanceIdx,
-          highlighted
+          isBottleneckPath
+            ? bottleneckColor
+            : isWorkloadActivePath
+            ? workloadColor
+            : highlighted
             ? highlightColor
             : isSingularityMode
             ? overdriveColor
@@ -222,6 +266,13 @@ export const DataFlow: React.FC<DataFlowProps> = ({
       {/* Conduit Base Tracks & Glowing Pathways */}
       {curves.map((item) => {
         const highlighted = isPathHighlighted(item);
+        const isWorkloadActivePath = workloadSpec.activePathIds.includes(
+          item.id
+        );
+        const isBottleneckPath =
+          bottleneckSpec.targetDistrictId !== null &&
+          (item.to === bottleneckSpec.targetDistrictId ||
+            item.from === bottleneckSpec.targetDistrictId);
         const isOverdrive =
           isSingularityMode ||
           Boolean(
@@ -231,7 +282,11 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         const dimmed =
           (activeDistrict !== null || activeDemoPathIds.length > 0) &&
           !highlighted &&
-          !isSingularityMode;
+          !isSingularityMode &&
+          !isBlueprintMode;
+
+        const midPoint = item.points[Math.floor(item.points.length / 2)];
+        const protocolInfo = CONDUIT_PROTOCOL_LABELS[item.id];
 
         return (
           <group key={item.id}>
@@ -239,7 +294,9 @@ export const DataFlow: React.FC<DataFlowProps> = ({
             <Line
               points={item.points}
               color={isNight ? '#1E3A6E' : '#94A3B8'}
-              lineWidth={highlighted || isOverdrive ? 4.5 : 2.5}
+              lineWidth={
+                isBottleneckPath || highlighted || isOverdrive ? 4.5 : 2.5
+              }
               transparent
               opacity={dimmed ? 0.3 : 0.78}
             />
@@ -247,16 +304,22 @@ export const DataFlow: React.FC<DataFlowProps> = ({
             <Line
               points={item.points}
               color={
-                isSingularityMode
+                isBottleneckPath
+                  ? '#EF4444'
+                  : isWorkloadActivePath
+                  ? workloadSpec.particleColorHex
+                  : isSingularityMode
                   ? '#00F0FF'
                   : highlighted
                   ? '#00F0FF'
                   : item.hex
               }
               lineWidth={
-                isSingularityMode
+                isBottleneckPath
+                  ? 3.8
+                  : isSingularityMode
                   ? 3.6
-                  : highlighted || isOverdrive
+                  : highlighted || isOverdrive || isBlueprintMode
                   ? 3.2
                   : 1.8
               }
@@ -264,11 +327,32 @@ export const DataFlow: React.FC<DataFlowProps> = ({
               opacity={
                 dimmed
                   ? 0.25
-                  : isSingularityMode || highlighted || isOverdrive
+                  : isBottleneckPath ||
+                    isSingularityMode ||
+                    highlighted ||
+                    isOverdrive ||
+                    isBlueprintMode
                   ? 1.0
                   : 0.82
               }
             />
+
+            {/* Blueprint Mode Floating Inter-District Protocol Label */}
+            {isBlueprintMode && protocolInfo && midPoint && (
+              <Html
+                position={[midPoint.x, midPoint.y + 0.55, midPoint.z]}
+                center
+                zIndexRange={[6, 0]}
+                style={{ pointerEvents: 'none' }}
+              >
+                <div className="pointer-events-none select-none rounded-lg border border-cyan-400/70 bg-slate-950/90 px-2 py-0.5 font-mono text-[9px] text-cyan-200 shadow-lg whitespace-nowrap">
+                  <span className="font-bold text-cyan-400 mr-1">
+                    [{protocolInfo.code}]
+                  </span>
+                  <span>{protocolInfo.spec}</span>
+                </div>
+              </Html>
+            )}
           </group>
         );
       })}

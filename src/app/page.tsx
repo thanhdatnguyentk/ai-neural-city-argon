@@ -12,17 +12,34 @@ import {
   Minimize2,
   Terminal,
   Award,
+  AlertTriangle,
+  Wrench,
+  Layers,
+  Flame,
 } from 'lucide-react';
 import {
   DISTRICTS,
   DISTRICT_MAP,
   DEMO_JOURNEY_STEPS,
-  DEMO_SCENARIOS,
   DistrictId,
   PipelineStageId,
 } from '@/data/districts';
+import {
+  WorkloadPresetId,
+  WORKLOAD_PRESETS,
+  WORKLOAD_PRESET_MAP,
+  BOTTLENECK_SCENARIOS,
+  BOTTLENECK_SCENARIO_MAP,
+} from '@/data/bottleneck-scenarios';
+import {
+  SimulationProvider,
+  useSimulation,
+} from '@/context/SimulationContext';
 import { DistrictInfoPanel } from '@/components/DistrictInfoPanel';
-import { DistrictDeepDiveDrawer } from '@/components/DistrictDeepDiveDrawer';
+import {
+  DistrictDeepDiveDrawer,
+  DeepDiveTab,
+} from '@/components/DistrictDeepDiveDrawer';
 import { SceneControls } from '@/components/SceneControls';
 import { PipelineTimeline } from '@/components/PipelineTimeline';
 import { SystemStatusPanel, HeroStatusHUD } from '@/components/SystemStatusPanel';
@@ -43,7 +60,11 @@ const NeuralCityScene = dynamic(
   }
 );
 
-export default function HomePage() {
+const VALID_DISTRICTS = new Set<string>(DISTRICTS.map((d) => d.id));
+const VALID_TABS = new Set<string>(['roadmap', 'landmarks', 'quiz', 'sandbox']);
+const VALID_WORKLOADS = new Set<string>(WORKLOAD_PRESETS.map((w) => w.id));
+
+function NeuralCitySandboxApp() {
   const [selectedDistrict, setSelectedDistrict] = useState<DistrictId | null>(null);
   const [hoveredDistrict, setHoveredDistrict] = useState<DistrictId | null>(null);
   const [activePipelineStage, setActivePipelineStage] = useState<PipelineStageId>('input');
@@ -57,8 +78,24 @@ export default function HomePage() {
   const [reducedMotion, setReducedMotion] = useState<boolean>(false);
   const [forceSimplified2D, setForceSimplified2D] = useState<boolean>(false);
   const [heroMinimized, setHeroMinimized] = useState<boolean>(false);
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string>(DEMO_SCENARIOS[0].id);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [drawerTab, setDrawerTab] = useState<DeepDiveTab>('roadmap');
+  const [highlightedMilestoneId, setHighlightedMilestoneId] = useState<string | null>(null);
+  const [activeKeyFlash, setActiveKeyFlash] = useState<string | null>(null);
+  const [urlHydrated, setUrlHydrated] = useState<boolean>(false);
+
+  const {
+    activeWorkload,
+    activeBottleneck,
+    isBlueprintMode,
+    vramConfig,
+    computedTelemetry,
+    setActiveWorkload,
+    setActiveBottleneck,
+    toggleBlueprintMode,
+    setIsBlueprintMode,
+    updateVramConfig,
+  } = useSimulation();
 
   const {
     lastMasteredDistrictId,
@@ -70,6 +107,7 @@ export default function HomePage() {
     getAllDistrictsMastery,
     getTotalCityMastery,
   } = useRoadmapProgress();
+
   const cityMastery = getTotalCityMastery();
   const allDistrictsMastery = getAllDistrictsMastery();
   const isSingularityMode = cityMastery.percentage === 100;
@@ -86,8 +124,91 @@ export default function HomePage() {
   const [demoStepIndex, setDemoStepIndex] = useState<number | null>(null);
   const cityViewportRef = useRef<HTMLDivElement>(null);
 
-  const activeScenario =
-    DEMO_SCENARIOS.find((s) => s.id === selectedScenarioId) || DEMO_SCENARIOS[0];
+  const activeWorkloadObj = WORKLOAD_PRESET_MAP[activeWorkload];
+  const activeBottleneckObj = BOTTLENECK_SCENARIO_MAP[activeBottleneck];
+
+  const triggerKeyFlash = useCallback((keyLabel: string) => {
+    setActiveKeyFlash(keyLabel);
+  }, []);
+
+  useEffect(() => {
+    if (!activeKeyFlash) return;
+    const timer = setTimeout(() => setActiveKeyFlash(null), 380);
+    return () => clearTimeout(timer);
+  }, [activeKeyFlash]);
+
+  // Hydrate initial state from URL query parameters (?district=...&tab=...&workload=...&blueprint=1)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const districtParam = params.get('district');
+    const tabParam = params.get('tab');
+    const workloadParam = params.get('workload');
+    const blueprintParam = params.get('blueprint');
+
+    if (districtParam && VALID_DISTRICTS.has(districtParam)) {
+      const dId = districtParam as DistrictId;
+      setSelectedDistrict(dId);
+      setActivePipelineStage(DISTRICT_MAP[dId].pipelineStage);
+      setIsDrawerOpen(true);
+    }
+    if (tabParam && VALID_TABS.has(tabParam)) {
+      setDrawerTab(tabParam as DeepDiveTab);
+      if (districtParam && VALID_DISTRICTS.has(districtParam)) {
+        setIsDrawerOpen(true);
+      }
+    }
+    if (workloadParam && VALID_WORKLOADS.has(workloadParam)) {
+      setActiveWorkload(workloadParam as WorkloadPresetId);
+    }
+    if (blueprintParam === '1' || blueprintParam === 'true') {
+      setIsBlueprintMode(true);
+    }
+    setUrlHydrated(true);
+  }, [setActiveWorkload, setIsBlueprintMode]);
+
+  // Synchronize state changes back to URL query parameters via window.history.replaceState
+  useEffect(() => {
+    if (!urlHydrated || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+
+    if (selectedDistrict) {
+      params.set('district', selectedDistrict);
+    } else {
+      params.delete('district');
+    }
+
+    if (isDrawerOpen && selectedDistrict) {
+      params.set('tab', drawerTab);
+    } else {
+      params.delete('tab');
+    }
+
+    if (activeWorkload !== 'multimodal-vision') {
+      params.set('workload', activeWorkload);
+    } else {
+      params.delete('workload');
+    }
+
+    if (isBlueprintMode) {
+      params.set('blueprint', '1');
+    } else {
+      params.delete('blueprint');
+    }
+
+    const queryString = params.toString();
+    const nextUrl = queryString
+      ? `${window.location.pathname}?${queryString}${window.location.hash}`
+      : `${window.location.pathname}${window.location.hash}`;
+    window.history.replaceState(null, '', nextUrl);
+  }, [
+    urlHydrated,
+    selectedDistrict,
+    isDrawerOpen,
+    drawerTab,
+    activeWorkload,
+    isBlueprintMode,
+  ]);
 
   // Detect OS prefers-reduced-motion on mount
   useEffect(() => {
@@ -130,6 +251,7 @@ export default function HomePage() {
 
   const handleSelectDistrict = useCallback((id: DistrictId | null) => {
     setSelectedDistrict(id);
+    setHighlightedMilestoneId(null);
     if (id) {
       setActivePipelineStage(DISTRICT_MAP[id].pipelineStage);
       setHighlightedFlowDistrict((prev) => (prev && prev !== id ? null : prev));
@@ -140,6 +262,20 @@ export default function HomePage() {
     }
   }, []);
 
+  const handleFixBottleneck = useCallback(
+    (districtId: DistrictId, milestoneId: string) => {
+      setSelectedDistrict(districtId);
+      setActivePipelineStage(DISTRICT_MAP[districtId].pipelineStage);
+      setDrawerTab('roadmap');
+      setHighlightedMilestoneId(milestoneId);
+      setIsDrawerOpen(true);
+      cityViewportRef.current?.scrollIntoView({
+        behavior: reducedMotion ? 'auto' : 'smooth',
+      });
+    },
+    [reducedMotion]
+  );
+
   const handleToggleDataFlow = useCallback((id: DistrictId) => {
     setHighlightedFlowDistrict((prev) => (prev === id ? null : id));
   }, []);
@@ -147,6 +283,7 @@ export default function HomePage() {
   const handleResetCamera = useCallback(() => {
     setSelectedDistrict(null);
     setHighlightedFlowDistrict(null);
+    setHighlightedMilestoneId(null);
     setDemoStepIndex(null);
     setIsDrawerOpen(false);
     setCameraZoomDelta(0);
@@ -207,10 +344,11 @@ export default function HomePage() {
     [reducedMotion]
   );
 
-  // Keyboard navigation shortcuts (1-8 for districts, Escape to close drawer/panel, R to reset)
+  // Keyboard navigation shortcuts ([1-8] for districts, [B] for Blueprint Mode, [R] to reset, [Esc] to close)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        triggerKeyFlash('Esc');
         if (isDrawerOpen) {
           setIsDrawerOpen(false);
         } else {
@@ -222,13 +360,17 @@ export default function HomePage() {
       if (
         document.activeElement?.tagName === 'INPUT' ||
         document.activeElement?.tagName === 'TEXTAREA' ||
-        document.activeElement?.tagName === 'BUTTON'
+        document.activeElement?.tagName === 'SELECT'
       ) {
         return;
       }
 
       if (e.key === 'r' || e.key === 'R') {
+        triggerKeyFlash('R');
         handleResetCamera();
+      } else if (e.key === 'b' || e.key === 'B') {
+        triggerKeyFlash('B');
+        toggleBlueprintMode();
       } else if (e.key === 'Enter' && selectedDistrict && !isDrawerOpen) {
         setIsDrawerOpen(true);
       } else if (e.key === 'ArrowLeft' && selectedDistrict && isDrawerOpen) {
@@ -240,6 +382,7 @@ export default function HomePage() {
         const next = DISTRICTS[(idx + 1) % DISTRICTS.length];
         if (next) handleSelectDistrict(next.id);
       } else if (e.key >= '1' && e.key <= '8') {
+        triggerKeyFlash(e.key);
         const idx = parseInt(e.key, 10) - 1;
         if (DISTRICTS[idx]) {
           handleSelectDistrict(DISTRICTS[idx].id);
@@ -248,7 +391,14 @@ export default function HomePage() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleSelectDistrict, handleResetCamera, isDrawerOpen, selectedDistrict]);
+  }, [
+    handleSelectDistrict,
+    handleResetCamera,
+    toggleBlueprintMode,
+    triggerKeyFlash,
+    isDrawerOpen,
+    selectedDistrict,
+  ]);
 
   const activeDemoStep =
     demoStepIndex !== null ? DEMO_JOURNEY_STEPS[demoStepIndex] : null;
@@ -258,6 +408,9 @@ export default function HomePage() {
   const hoveredDistrictObj = hoveredDistrict
     ? DISTRICT_MAP[hoveredDistrict]
     : null;
+
+  // Step 1 Guardrail: Prevent HUD overlap when DistrictDeepDiveDrawer is open
+  const isLeftHeroCollapsed = heroMinimized || isDrawerOpen;
 
   return (
     <div
@@ -294,7 +447,7 @@ export default function HomePage() {
                     isNight ? 'text-cyan-400' : 'text-cyan-700 font-semibold'
                   }`}
                 >
-                  Isometric System Visualizer
+                  Interactive Systems Sandbox
                 </span>
               </div>
             </button>
@@ -320,32 +473,30 @@ export default function HomePage() {
               href="#system-activity-section"
               className="rounded px-1.5 py-0.5 hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
-              03. System Activity
+              03. Chaos & Telemetry
             </a>
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* Color Legend Pills on Desktop */}
-            <div
-              className={`hidden xl:flex items-center gap-3 rounded-full border px-3 py-1 font-mono text-[10px] ${
-                isNight
-                  ? 'border-slate-800 bg-slate-950/75 text-slate-300'
-                  : 'border-slate-300 bg-slate-100 text-slate-700'
+            {/* Blueprint / X-Ray Quick Toggle in Header */}
+            <button
+              type="button"
+              onClick={toggleBlueprintMode}
+              aria-pressed={isBlueprintMode}
+              title="Toggle Blueprint / X-Ray Architecture Schematic Mode [B]"
+              className={`hidden sm:inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 font-mono text-[11px] font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                activeKeyFlash === 'B' ? 'ring-2 ring-cyan-400 scale-105' : ''
+              } ${
+                isBlueprintMode
+                  ? 'border-cyan-400 bg-cyan-400 text-slate-950 font-bold shadow-sm shadow-cyan-500/25'
+                  : isNight
+                  ? 'border-slate-800 bg-slate-900/80 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300'
+                  : 'border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <span className="flex items-center gap-1.5">
-                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#00F0FF]" />
-                Data Flow
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
-                Neural Activity
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#F59E0B]" />
-                Status
-              </span>
-            </div>
+              <Layers aria-hidden="true" className="h-3.5 w-3.5" />
+              <span>Blueprint [B]</span>
+            </button>
 
             {/* Singularity Mode 100% City Mastery Banner & Controls */}
             {isSingularityMode && (
@@ -358,14 +509,14 @@ export default function HomePage() {
                   }
                   className="ml-1 rounded-md border border-amber-400/50 bg-amber-400/20 px-1.5 py-0.5 text-[9px] text-white hover:bg-amber-400 hover:text-slate-950 transition-colors cursor-pointer"
                 >
-                  Replay Awakening Pulse
+                  Replay Pulse
                 </button>
                 <button
                   type="button"
                   onClick={resetAllProgress}
                   className="rounded-md border border-slate-700 bg-slate-900/90 px-1.5 py-0.5 text-[9px] text-slate-300 hover:border-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
                 >
-                  Reset Progress
+                  Reset
                 </button>
               </div>
             )}
@@ -383,7 +534,7 @@ export default function HomePage() {
                 }
               }}
               aria-pressed={isDrawerOpen}
-              title="Open Zero-to-Hero AI Engineering Roadmap & Landmarks"
+              title="Open Zero-to-Hero AI Engineering Roadmap, Quiz & VRAM Lab"
               className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 font-mono text-[11px] font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                 isDrawerOpen
                   ? 'border-cyan-400 bg-cyan-400 text-slate-950 shadow-sm shadow-cyan-500/20'
@@ -426,7 +577,7 @@ export default function HomePage() {
           id="interactive-city"
           ref={cityViewportRef}
           aria-label="Interactive 3D AI Neural City"
-          className={`relative h-screen min-h-[760px] w-full overflow-hidden pt-14 ${
+          className={`relative h-screen min-h-[780px] w-full overflow-hidden pt-14 ${
             isNight ? 'bg-radial-city' : 'bg-radial-city-day'
           }`}
         >
@@ -441,17 +592,22 @@ export default function HomePage() {
               showLabels={showLabels}
               isPaused={isPaused}
               flowSpeed={flowSpeed}
-              trainingMode={trainingMode}
+              trainingMode={
+                trainingMode || activeWorkload === 'distributed-training'
+              }
               isNight={isNight}
               reducedMotion={reducedMotion}
               cameraZoomDelta={cameraZoomDelta}
               cameraAzimuthDelta={cameraAzimuthDelta}
               cameraResetTrigger={cameraResetTrigger}
               forceSimplified2D={forceSimplified2D}
-              heroMinimized={heroMinimized}
+              heroMinimized={isLeftHeroCollapsed}
               allDistrictsMastery={allDistrictsMastery}
               lastMasteredDistrictId={lastMasteredDistrictId}
               isSingularityMode={isSingularityMode}
+              activeWorkload={activeWorkload}
+              activeBottleneck={activeBottleneck}
+              isBlueprintMode={isBlueprintMode}
               onSelectDistrict={handleSelectDistrict}
               onHoverDistrict={setHoveredDistrict}
             />
@@ -461,13 +617,19 @@ export default function HomePage() {
           <div className="pointer-events-none relative z-20 mx-auto flex h-full max-w-[1600px] flex-col justify-between p-4 sm:p-6">
             {/* TOP ROW: Compact Hero Overlay Card (Left) + District Detail Panel (Right) */}
             <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
-              {/* Left Column: Compact Hero Panel & Live Demo Narration */}
-              <div className="flex flex-col gap-2.5 w-full max-w-[360px]">
-                {!heroMinimized ? (
+              {/* Left Column: Compact Hero Panel, Packet Tracer, Chaos Simulator & Live Telemetry */}
+              <div
+                className={`flex flex-col gap-2.5 w-full transition-all duration-300 ${
+                  isDrawerOpen ? 'max-w-[330px]' : 'max-w-[380px]'
+                }`}
+              >
+                {!isLeftHeroCollapsed ? (
                   <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
+                    transition={{ duration: 0.25 }}
+                    onWheel={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
                     className={`pointer-events-auto relative rounded-2xl p-4 sm:p-5 transition-colors ${
                       isNight
                         ? 'hud-glass-dark text-slate-100'
@@ -499,7 +661,7 @@ export default function HomePage() {
                         aria-hidden="true"
                         className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse"
                       />
-                      AN INTERACTIVE AI SYSTEM
+                      SYSTEMS ENGINEERING SANDBOX
                     </div>
 
                     <h1 className="mt-2 text-2xl font-bold tracking-tight">
@@ -511,36 +673,42 @@ export default function HomePage() {
                         isNight ? 'text-slate-300' : 'text-slate-600'
                       }`}
                     >
-                      Explore how data becomes intelligence. Each architectural district represents one stage of an AI pipeline.
+                      Trace live AI workloads, inject production chaos bottlenecks, and verify engineering mastery across 8 districts.
                     </p>
 
-                    {/* Interactive Workload Scenario Selector */}
+                    {/* Step 2: Interactive Workload Simulator ("Packet Tracer") */}
                     <div
                       className={`mt-3 rounded-xl border p-2.5 ${
                         isNight
-                          ? 'border-slate-800 bg-slate-950/70'
+                          ? 'border-slate-800 bg-slate-950/75'
                           : 'border-slate-200 bg-slate-50'
                       }`}
                     >
                       <div className="flex items-center justify-between font-mono text-[10px] uppercase text-cyan-400">
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 font-bold">
                           <Terminal aria-hidden="true" className="h-3 w-3" />
-                          Active AI Workload
+                          Packet Tracer Workload
                         </span>
-                        <span className="text-[9px] text-amber-400">
-                          {activeScenario.badge}
+                        <span
+                          className="rounded px-1.5 py-0.5 text-[9px] font-bold"
+                          style={{
+                            backgroundColor: `${activeWorkloadObj.particleColorHex}22`,
+                            color: activeWorkloadObj.particleColorHex,
+                          }}
+                        >
+                          {activeWorkloadObj.shortBadge}
                         </span>
                       </div>
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {DEMO_SCENARIOS.map((scen) => {
-                          const isCurrent = scen.id === selectedScenarioId;
+                      <div className="mt-1.5 grid grid-cols-2 gap-1">
+                        {WORKLOAD_PRESETS.map((preset) => {
+                          const isCurrent = preset.id === activeWorkload;
                           return (
                             <button
-                              key={scen.id}
+                              key={preset.id}
                               type="button"
-                              onClick={() => setSelectedScenarioId(scen.id)}
+                              onClick={() => setActiveWorkload(preset.id)}
                               aria-pressed={isCurrent}
-                              className={`rounded-lg px-2 py-1 font-mono text-[10px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                              className={`rounded-lg px-2 py-1 text-left font-mono text-[10px] transition-colors cursor-pointer truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                                 isCurrent
                                   ? 'bg-cyan-400 text-slate-950 font-bold'
                                   : isNight
@@ -548,7 +716,7 @@ export default function HomePage() {
                                   : 'bg-slate-200 text-slate-700 hover:text-slate-950'
                               }`}
                             >
-                              {scen.badge}
+                              {preset.shortBadge}
                             </button>
                           );
                         })}
@@ -557,10 +725,61 @@ export default function HomePage() {
                         className={`mt-1.5 font-mono text-[10px] truncate ${
                           isNight ? 'text-slate-300' : 'text-slate-700'
                         }`}
-                        title={activeScenario.samplePrompt}
+                        title={activeWorkloadObj.payloadPreview}
                       >
-                        {activeScenario.samplePrompt}
+                        {activeWorkloadObj.payloadPreview}
                       </p>
+                    </div>
+
+                    {/* Step 3: Compact Chaos & Bottleneck Simulator */}
+                    <div
+                      className={`mt-2.5 rounded-xl border p-2.5 ${
+                        activeBottleneck !== 'none'
+                          ? 'border-rose-500/60 bg-rose-950/35'
+                          : isNight
+                          ? 'border-slate-800 bg-slate-950/75'
+                          : 'border-slate-200 bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between font-mono text-[10px] uppercase">
+                        <span
+                          className={`flex items-center gap-1 font-bold ${
+                            activeBottleneck !== 'none'
+                              ? 'text-rose-400'
+                              : 'text-amber-400'
+                          }`}
+                        >
+                          <Flame aria-hidden="true" className="h-3 w-3" />
+                          Chaos Fault Injection
+                        </span>
+                        <span className="text-[9px] text-slate-400">
+                          {activeBottleneckObj.shortLabel}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {BOTTLENECK_SCENARIOS.map((scen) => {
+                          const active = scen.id === activeBottleneck;
+                          return (
+                            <button
+                              key={scen.id}
+                              type="button"
+                              onClick={() => setActiveBottleneck(scen.id)}
+                              aria-pressed={active}
+                              className={`rounded-lg px-2 py-1 font-mono text-[9px] transition-colors cursor-pointer ${
+                                active
+                                  ? scen.id === 'none'
+                                    ? 'bg-emerald-400 text-slate-950 font-bold'
+                                    : 'bg-rose-500 text-white font-bold'
+                                  : isNight
+                                  ? 'bg-slate-900 text-slate-300 hover:text-white'
+                                  : 'bg-slate-200 text-slate-700'
+                              }`}
+                            >
+                              {scen.shortLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <div className="mt-3.5 flex flex-wrap items-center gap-2">
@@ -588,11 +807,14 @@ export default function HomePage() {
                     </div>
                   </motion.div>
                 ) : (
-                  <div className="pointer-events-auto inline-flex">
+                  <div className="pointer-events-auto flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setHeroMinimized(false)}
-                      className={`inline-flex items-center gap-2.5 rounded-2xl px-4 py-2.5 font-mono text-xs font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                      onClick={() => {
+                        setHeroMinimized(false);
+                        setIsDrawerOpen(false);
+                      }}
+                      className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2 font-mono text-xs font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                         isNight
                           ? 'hud-glass-dark text-slate-200 hover:border-cyan-400'
                           : 'hud-glass-light text-slate-900'
@@ -602,20 +824,73 @@ export default function HomePage() {
                         aria-hidden="true"
                         className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse"
                       />
-                      <span>Inside the Neural City</span>
+                      <span>Workload & Chaos Sandbox</span>
                       <Maximize2 aria-hidden="true" className="h-3.5 w-3.5 text-cyan-400" />
                     </button>
                   </div>
                 )}
 
-                {/* Hero Status Panel (SYSTEM STATUS: ONLINE | ACTIVE NODES | DATA FLOW | MODEL LOAD) */}
+                {/* Active Chaos Bottleneck Diagnostic Alert Banner + 1-Click Fix */}
+                <AnimatePresence>
+                  {activeBottleneck !== 'none' &&
+                    activeBottleneckObj.targetDistrictId &&
+                    activeBottleneckObj.fixMilestoneId && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        onWheel={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="pointer-events-auto rounded-2xl border border-rose-500/80 bg-rose-950/95 p-3.5 text-slate-100 shadow-2xl shadow-rose-500/20 backdrop-blur-xl"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-rose-300">
+                            <AlertTriangle
+                              aria-hidden="true"
+                              className="h-3.5 w-3.5 text-rose-400 shrink-0"
+                            />
+                            {activeBottleneckObj.title}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveBottleneck('none')}
+                            className="font-mono text-[10px] text-rose-300 hover:text-white cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                        <p className="mt-1 text-[11px] leading-relaxed text-rose-100/90">
+                          {activeBottleneckObj.diagnosticMessage}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleFixBottleneck(
+                              activeBottleneckObj.targetDistrictId!,
+                              activeBottleneckObj.fixMilestoneId!
+                            )
+                          }
+                          className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-400 px-3 py-1.5 font-mono text-[11px] font-bold text-slate-950 hover:bg-amber-300 transition-colors cursor-pointer"
+                        >
+                          <Wrench aria-hidden="true" className="h-3.5 w-3.5" />
+                          <span>[{activeBottleneckObj.fixButtonLabel} →]</span>
+                        </button>
+                      </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Hero Status Panel (SYSTEM STATUS | ACTIVE NODES | DATA FLOW | MODEL LOAD) */}
                 <HeroStatusHUD
                   isPaused={isPaused}
                   flowSpeed={flowSpeed}
-                  trainingMode={trainingMode}
+                  trainingMode={
+                    trainingMode || activeWorkload === 'distributed-training'
+                  }
                   isNight={isNight}
                   masteryCompleted={cityMastery.completed}
                   masteryTotal={cityMastery.total}
+                  computedTelemetry={computedTelemetry}
+                  activeBottleneck={activeBottleneck}
                 />
 
                 {/* Live Demo Journey Stepper Banner */}
@@ -677,10 +952,17 @@ export default function HomePage() {
                     isOpen={isDrawerOpen}
                     isNight={isNight}
                     isFlowHighlighted={highlightedFlowDistrict === activeDistrictObj.id}
+                    activeTab={drawerTab}
+                    onTabChange={setDrawerTab}
+                    highlightedMilestoneId={highlightedMilestoneId}
                     isCompleted={isCompleted}
                     onToggleMilestone={toggleMilestone}
+                    onTriggerMilestonePulse={(dId) => replayAwakeningPulse(dId)}
                     getDistrictProgress={getDistrictProgress}
                     getTotalCityMastery={getTotalCityMastery}
+                    vramConfig={vramConfig}
+                    computedTelemetry={computedTelemetry}
+                    onUpdateVramConfig={updateVramConfig}
                     onClose={() => setIsDrawerOpen(false)}
                     onMinimizeToCompactHud={() => setIsDrawerOpen(false)}
                     onSelectDistrict={(id) => handleSelectDistrict(id)}
@@ -723,7 +1005,7 @@ export default function HomePage() {
                         </span>
                       ) : (
                         <span className="font-mono">
-                          Select a district to explore · Drag to orbit · Scroll to zoom
+                          Select a district [1–8] · Press [B] for Blueprint X-Ray · Drag to orbit
                         </span>
                       )}
                     </div>
@@ -738,6 +1020,8 @@ export default function HomePage() {
               <div
                 role="navigation"
                 aria-label="City Districts Quick Selector"
+                onWheel={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
                 className={`pointer-events-auto flex items-center gap-1.5 overflow-x-auto max-w-full rounded-2xl p-1.5 ${
                   isNight ? 'hud-glass-dark' : 'hud-glass-light'
                 }`}
@@ -747,13 +1031,17 @@ export default function HomePage() {
                     isNight ? 'text-slate-400' : 'text-slate-600'
                   }`}
                 >
-                  Select a district to explore:
+                  Select a district:
                 </span>
                 {DISTRICTS.map((d, idx) => {
                   const active = selectedDistrict === d.id;
                   const mastery = allDistrictsMastery[d.id];
                   const isMastered = mastery?.isMastered ?? false;
                   const completedCount = mastery?.completedCount ?? 0;
+                  const keyNum = String(idx + 1);
+                  const isKeyFlashed = activeKeyFlash === keyNum;
+                  const isBottleneckTarget =
+                    activeBottleneckObj.targetDistrictId === d.id;
 
                   return (
                     <button
@@ -764,7 +1052,11 @@ export default function HomePage() {
                       onMouseLeave={() => setHoveredDistrict(null)}
                       aria-pressed={active}
                       className={`relative overflow-hidden inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 font-mono text-[11px] font-medium whitespace-nowrap transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-                        active
+                        isKeyFlashed ? 'ring-2 ring-cyan-400 scale-105' : ''
+                      } ${
+                        isBottleneckTarget
+                          ? 'border border-rose-500 bg-rose-500/20 text-rose-200 font-bold animate-pulse'
+                          : active
                           ? 'bg-cyan-400 text-slate-950 font-bold shadow-md shadow-cyan-500/25'
                           : isMastered
                           ? isNight
@@ -779,12 +1071,20 @@ export default function HomePage() {
                         aria-hidden="true"
                         className="h-2 w-2 rounded-full shrink-0"
                         style={{
-                          backgroundColor: active ? '#040814' : d.accentColor,
+                          backgroundColor: isBottleneckTarget
+                            ? '#EF4444'
+                            : active
+                            ? '#040814'
+                            : d.accentColor,
                         }}
                       />
                       <span className="opacity-65 text-[9px]">0{idx + 1}</span>
                       <span>{d.shortName}</span>
-                      {isMastered ? (
+                      {isBottleneckTarget ? (
+                        <span className="ml-0.5 text-[10px] text-rose-400 font-bold">
+                          ⚠
+                        </span>
+                      ) : isMastered ? (
                         <span
                           title="District Mastered (4/4)"
                           className={`ml-0.5 text-[10px] font-bold ${
@@ -836,10 +1136,13 @@ export default function HomePage() {
                 isDemoRunning={demoStepIndex !== null}
                 isNight={isNight}
                 forceSimplified2D={forceSimplified2D}
+                isBlueprintMode={isBlueprintMode}
+                activeKeyFlash={activeKeyFlash}
                 onToggleLabels={() => setShowLabels((s) => !s)}
                 onTogglePause={() => setIsPaused((p) => !p)}
                 onChangeSpeed={(spd) => setFlowSpeed(spd)}
                 onToggleTrainingMode={() => setTrainingMode((t) => !t)}
+                onToggleBlueprintMode={toggleBlueprintMode}
                 onRunDemo={handleRunDemo}
                 onResetCamera={handleResetCamera}
                 onZoomIn={() => setCameraZoomDelta((z) => Math.min(z + 1, 4))}
@@ -868,12 +1171,18 @@ export default function HomePage() {
         <SystemStatusPanel
           isPaused={isPaused}
           flowSpeed={flowSpeed}
-          trainingMode={trainingMode}
+          trainingMode={
+            trainingMode || activeWorkload === 'distributed-training'
+          }
           isNight={isNight}
           reducedMotion={reducedMotion}
           masteryCompleted={cityMastery.completed}
           masteryTotal={cityMastery.total}
           masteredDistrictsCount={masteredDistrictsCount}
+          computedTelemetry={computedTelemetry}
+          activeBottleneck={activeBottleneck}
+          onSelectBottleneck={setActiveBottleneck}
+          onFixBottleneck={handleFixBottleneck}
         />
       </main>
 
@@ -895,15 +1204,56 @@ export default function HomePage() {
             >
               AI NEURAL CITY
             </span>
-            <span>— Interactive 3D Isometric AI System Architecture</span>
+            <span>— Interactive 3D Isometric AI Systems Sandbox</span>
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-[11px]">
-            <span>Shortcuts: [1–8] Select District</span>
-            <span>[R] Reset Camera</span>
-            <span>[Esc] Close Panel</span>
+          <div className="flex flex-wrap items-center gap-3 text-[11px]">
+            <span
+              className={`rounded px-1.5 py-0.5 transition-all ${
+                activeKeyFlash && activeKeyFlash >= '1' && activeKeyFlash <= '8'
+                  ? 'ring-2 ring-cyan-400 scale-105 bg-cyan-500/20 text-cyan-300'
+                  : ''
+              }`}
+            >
+              Shortcuts: [1–8] Select District
+            </span>
+            <span
+              className={`rounded px-1.5 py-0.5 transition-all ${
+                activeKeyFlash === 'B'
+                  ? 'ring-2 ring-cyan-400 scale-105 bg-cyan-500/20 text-cyan-300'
+                  : ''
+              }`}
+            >
+              [B] Blueprint X-Ray
+            </span>
+            <span
+              className={`rounded px-1.5 py-0.5 transition-all ${
+                activeKeyFlash === 'R'
+                  ? 'ring-2 ring-cyan-400 scale-105 bg-cyan-500/20 text-cyan-300'
+                  : ''
+              }`}
+            >
+              [R] Reset Camera
+            </span>
+            <span
+              className={`rounded px-1.5 py-0.5 transition-all ${
+                activeKeyFlash === 'Esc'
+                  ? 'ring-2 ring-cyan-400 scale-105 bg-cyan-500/20 text-cyan-300'
+                  : ''
+              }`}
+            >
+              [Esc] Close Panel
+            </span>
           </div>
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <SimulationProvider>
+      <NeuralCitySandboxApp />
+    </SimulationProvider>
   );
 }

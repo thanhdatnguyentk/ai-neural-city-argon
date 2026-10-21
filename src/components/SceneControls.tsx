@@ -14,6 +14,7 @@ import {
   Zap,
   RotateCw,
   Layers,
+  ScanLine,
 } from 'lucide-react';
 
 interface SceneControlsProps {
@@ -24,6 +25,8 @@ interface SceneControlsProps {
   isDemoRunning: boolean;
   isNight: boolean;
   forceSimplified2D: boolean;
+  isBlueprintMode?: boolean;
+  activeKeyFlash?: string | null;
   onToggleLabels: () => void;
   onTogglePause: () => void;
   onChangeSpeed: (speed: number) => void;
@@ -36,6 +39,7 @@ interface SceneControlsProps {
   onRotateRight: () => void;
   onToggleNight: () => void;
   onToggle2D: () => void;
+  onToggleBlueprintMode?: () => void;
 }
 
 const SPEED_OPTIONS = [0.5, 1, 2];
@@ -48,6 +52,8 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
   isDemoRunning,
   isNight,
   forceSimplified2D,
+  isBlueprintMode = false,
+  activeKeyFlash = null,
   onToggleLabels,
   onTogglePause,
   onChangeSpeed,
@@ -60,6 +66,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
   onRotateRight,
   onToggleNight,
   onToggle2D,
+  onToggleBlueprintMode,
 }) => {
   const panelClass = isNight
     ? 'hud-glass-dark text-slate-200'
@@ -179,6 +186,24 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         <span className="hidden sm:inline">Training Boost</span>
       </button>
 
+      {/* Blueprint / X-Ray Mode Toggle [B] */}
+      {onToggleBlueprintMode && (
+        <button
+          type="button"
+          onClick={onToggleBlueprintMode}
+          aria-pressed={isBlueprintMode}
+          title="Toggle Blueprint / X-Ray Architecture Mode [B]"
+          className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 font-mono text-xs transition-all cursor-pointer ${
+            isBlueprintMode || activeKeyFlash === 'b'
+              ? 'border-cyan-400 bg-cyan-400 text-slate-950 font-bold shadow-md shadow-cyan-500/25'
+              : btnClass
+          }`}
+        >
+          <ScanLine aria-hidden="true" className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Blueprint [B]</span>
+        </button>
+      )}
+
       {/* Toggle District Labels */}
       <button
         type="button"
@@ -245,10 +270,14 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         <button
           type="button"
           onClick={onResetCamera}
-          title="Reset camera to default isometric view"
-          className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-2 font-mono text-xs transition-colors cursor-pointer ${btnClass}`}
+          title="Reset camera to default isometric view [R]"
+          className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
+            activeKeyFlash === 'r'
+              ? 'border-cyan-400 bg-cyan-400 text-slate-950 font-bold'
+              : btnClass
+          }`}
         >
-          <span>Reset View</span>
+          <span>Reset [R]</span>
         </button>
       </div>
 

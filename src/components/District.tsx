@@ -25,6 +25,9 @@ interface DistrictProps {
   reducedMotion: boolean;
   masteryMetrics?: DistrictMasteryMetrics;
   isShockwaveActive?: boolean;
+  isBlueprintMode?: boolean;
+  isBottleneckTarget?: boolean;
+  isAdversarialShieldActive?: boolean;
   onSelect: (id: DistrictId) => void;
   onHover: (id: DistrictId | null) => void;
 }
@@ -44,6 +47,9 @@ export const District: React.FC<DistrictProps> = ({
   reducedMotion,
   masteryMetrics,
   isShockwaveActive = false,
+  isBlueprintMode = false,
+  isBottleneckTarget = false,
+  isAdversarialShieldActive = false,
   onSelect,
   onHover,
 }) => {
@@ -63,10 +69,32 @@ export const District: React.FC<DistrictProps> = ({
   const masteryRatio = completedCount / 4;
   const smoothEmissiveRef = useRef<number>(0.9);
 
-  const baseColor = isNight ? '#112248' : '#CBD5E1';
-  const buildingBodyColor = isNight ? '#1E3A6E' : '#F8FAFC';
-  const buildingDarkColor = isNight ? '#132852' : '#94A3B8';
-  const edgeColor = isHighlighted ? '#00F0FF' : district.accentColor;
+  const baseColor = isBlueprintMode
+    ? '#06152D'
+    : isBottleneckTarget
+    ? '#3B0A14'
+    : isNight
+    ? '#112248'
+    : '#CBD5E1';
+  const buildingBodyColor = isBlueprintMode
+    ? '#092247'
+    : isBottleneckTarget
+    ? '#4C0D19'
+    : isNight
+    ? '#1E3A6E'
+    : '#F8FAFC';
+  const buildingDarkColor = isBlueprintMode
+    ? '#051329'
+    : isBottleneckTarget
+    ? '#380812'
+    : isNight
+    ? '#132852'
+    : '#94A3B8';
+  const edgeColor = isBottleneckTarget
+    ? '#EF4444'
+    : isBlueprintMode || isHighlighted
+    ? '#00F0FF'
+    : district.accentColor;
   const windowAmber = '#F59E0B';
 
   const accentThreeColor = useMemo(() => new THREE.Color(district.accentColor), [district.accentColor]);
@@ -110,12 +138,20 @@ export const District: React.FC<DistrictProps> = ({
       groupRef.current.traverse((obj) => {
         if ((obj as THREE.Mesh).isMesh) {
           const mat = (obj as THREE.Mesh).material as THREE.MeshStandardMaterial;
-          if (mat && mat.isMeshStandardMaterial && mat.emissiveIntensity > 0) {
-            if (mat.userData.baseEmissiveRatio === undefined) {
-              mat.userData.baseEmissiveRatio = mat.emissiveIntensity / i0;
+          if (mat && mat.isMeshStandardMaterial) {
+            mat.wireframe = isBlueprintMode;
+            if (mat.emissiveIntensity > 0) {
+              if (mat.userData.baseEmissiveRatio === undefined) {
+                mat.userData.baseEmissiveRatio = mat.emissiveIntensity / i0;
+              }
+              const bottleneckPulse = isBottleneckTarget
+                ? 1.6 + 0.8 * Math.sin(state.clock.elapsedTime * 7.0)
+                : 1.0;
+              mat.emissiveIntensity =
+                mat.userData.baseEmissiveRatio *
+                smoothEmissiveRef.current *
+                bottleneckPulse;
             }
-            mat.emissiveIntensity =
-              mat.userData.baseEmissiveRatio * smoothEmissiveRef.current;
           }
         }
       });
@@ -242,6 +278,62 @@ export const District: React.FC<DistrictProps> = ({
             isPaused={isPaused}
             reducedMotion={reducedMotion}
           />
+        )}
+
+        {/* Chaos Bottleneck Crimson Alert Cylinder & Ring */}
+        {isBottleneckTarget && (
+          <group raycast={() => null}>
+            <mesh position={[0, 0.44, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => null}>
+              <ringGeometry args={[Math.max(fw, fd) * 0.56, Math.max(fw, fd) * 0.68, 48]} />
+              <meshBasicMaterial
+                color="#EF4444"
+                transparent
+                opacity={0.92}
+                blending={THREE.AdditiveBlending}
+                side={THREE.DoubleSide}
+                depthWrite={false}
+              />
+            </mesh>
+            <mesh position={[0, 2.4, 0]} raycast={() => null}>
+              <cylinderGeometry args={[Math.min(fw, fd) * 0.42, Math.min(fw, fd) * 0.48, 4.4, 24, 1, true]} />
+              <meshBasicMaterial
+                color="#EF4444"
+                transparent
+                opacity={0.22}
+                blending={THREE.AdditiveBlending}
+                side={THREE.DoubleSide}
+                depthWrite={false}
+              />
+            </mesh>
+          </group>
+        )}
+
+        {/* Adversarial Containment Holographic Shield Dome (Guardrails Defense) */}
+        {isAdversarialShieldActive && (
+          <group position={[0, 0.4, 0]} raycast={() => null}>
+            <mesh raycast={() => null}>
+              <sphereGeometry args={[Math.max(fw, fd) * 0.58, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshBasicMaterial
+                color="#00F0FF"
+                wireframe
+                transparent
+                opacity={0.65}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
+            </mesh>
+            <mesh raycast={() => null}>
+              <sphereGeometry args={[Math.max(fw, fd) * 0.56, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshBasicMaterial
+                color="#F59E0B"
+                transparent
+                opacity={0.14}
+                blending={THREE.AdditiveBlending}
+                side={THREE.DoubleSide}
+                depthWrite={false}
+              />
+            </mesh>
+          </group>
         )}
 
         {/* Glowing Base Trim */}
@@ -864,6 +956,16 @@ export const District: React.FC<DistrictProps> = ({
                 <span className="font-mono text-[10px] font-bold tracking-wider uppercase whitespace-nowrap">
                   {district.name}
                 </span>
+                {isBottleneckTarget && (
+                  <span className="ml-0.5 inline-flex items-center rounded-full border border-rose-400 bg-rose-600/90 px-1.5 py-0.2 font-mono text-[8px] font-bold tracking-wider text-white animate-pulse whitespace-nowrap">
+                    ⚠ BOTTLENECK
+                  </span>
+                )}
+                {isAdversarialShieldActive && !isBottleneckTarget && (
+                  <span className="ml-0.5 inline-flex items-center rounded-full border border-amber-400 bg-amber-500/30 px-1.5 py-0.2 font-mono text-[8px] font-bold tracking-wider text-amber-200 whitespace-nowrap">
+                    🛡 SHIELD ACTIVE
+                  </span>
+                )}
                 {isMastered ? (
                   <span className="ml-0.5 inline-flex items-center rounded-full border border-amber-400/70 bg-amber-500/20 px-1.5 py-0.2 font-mono text-[8px] font-bold tracking-wider text-amber-300 shadow-sm shadow-amber-500/30 whitespace-nowrap">
                     ★ MASTERED

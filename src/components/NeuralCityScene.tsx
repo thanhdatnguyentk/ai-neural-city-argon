@@ -20,6 +20,11 @@ import { District } from './District';
 import { DataFlow } from './DataFlow';
 import { IsometricCityFallback } from './IsometricCityFallback';
 import type { DistrictMasteryMetrics } from '@/hooks/useRoadmapProgress';
+import {
+  WorkloadPresetId,
+  BottleneckScenarioId,
+  BOTTLENECK_SCENARIO_MAP,
+} from '@/data/bottleneck-scenarios';
 
 export interface NeuralCitySceneProps {
   selectedDistrict: DistrictId | null;
@@ -41,6 +46,9 @@ export interface NeuralCitySceneProps {
   allDistrictsMastery?: Record<DistrictId, DistrictMasteryMetrics>;
   lastMasteredDistrictId?: DistrictId | null;
   isSingularityMode?: boolean;
+  activeWorkload?: WorkloadPresetId;
+  activeBottleneck?: BottleneckScenarioId;
+  isBlueprintMode?: boolean;
   onSelectDistrict: (id: DistrictId | null) => void;
   onHoverDistrict: (id: DistrictId | null) => void;
 }
@@ -283,9 +291,16 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
     allDistrictsMastery,
     lastMasteredDistrictId = null,
     isSingularityMode = false,
+    activeWorkload = 'multimodal-vision',
+    activeBottleneck = 'none',
+    isBlueprintMode = false,
     onSelectDistrict,
     onHoverDistrict,
   } = props;
+
+  const bottleneckSpec =
+    BOTTLENECK_SCENARIO_MAP[activeBottleneck] ||
+    BOTTLENECK_SCENARIO_MAP['none'];
 
   const [webglSupported, setWebglSupported] = useState<boolean>(true);
   const [sceneReady, setSceneReady] = useState<boolean>(false);
@@ -497,6 +512,9 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
             reducedMotion={reducedMotion}
             allDistrictsMastery={allDistrictsMastery}
             isSingularityMode={isSingularityMode}
+            activeWorkload={activeWorkload}
+            activeBottleneck={activeBottleneck}
+            isBlueprintMode={isBlueprintMode}
           />
 
           {/* The 8 Core AI Pipeline Districts */}
@@ -509,6 +527,12 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
               (district.id === highlightedFlowDistrict ||
                 district.connectsTo.includes(highlightedFlowDistrict) ||
                 district.receivesFrom.includes(highlightedFlowDistrict));
+            const isBottleneckTarget =
+              bottleneckSpec.targetDistrictId === district.id;
+            const isAdversarialShieldActive =
+              district.id === 'computer-vision' &&
+              (activeWorkload === 'adversarial-injection' ||
+                activeBottleneck === 'prompt-injection-spike');
 
             return (
               <District
@@ -527,6 +551,9 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
                 reducedMotion={reducedMotion}
                 masteryMetrics={allDistrictsMastery?.[district.id]}
                 isShockwaveActive={lastMasteredDistrictId === district.id}
+                isBlueprintMode={isBlueprintMode}
+                isBottleneckTarget={isBottleneckTarget}
+                isAdversarialShieldActive={isAdversarialShieldActive}
                 onSelect={(id) => onSelectDistrict(id)}
                 onHover={onHoverDistrict}
               />
