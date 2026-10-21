@@ -12,6 +12,7 @@ import {
   Sparkles,
   Terminal,
   BookOpen,
+  Layers,
 } from 'lucide-react';
 import {
   PIPELINE_STEPS,
@@ -19,13 +20,16 @@ import {
   DistrictId,
   PipelineStageId,
 } from '@/data/districts';
+import type { ProgressStats } from '@/hooks/useRoadmapProgress';
 
 interface PipelineTimelineProps {
   activeStage: PipelineStageId;
   selectedDistrict: DistrictId | null;
   isNight: boolean;
+  getDistrictProgress?: (districtId: DistrictId) => ProgressStats;
   onSelectStage: (stageId: PipelineStageId, districtId: DistrictId) => void;
   onSelectDistrictAndScroll: (districtId: DistrictId) => void;
+  onOpenRoadmapDrawer?: (districtId: DistrictId) => void;
 }
 
 const DISTRICT_ICONS: Record<DistrictId, React.ReactNode> = {
@@ -43,8 +47,10 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
   activeStage,
   selectedDistrict,
   isNight,
+  getDistrictProgress,
   onSelectStage,
   onSelectDistrictAndScroll,
+  onOpenRoadmapDrawer,
 }) => {
   const currentStep =
     PIPELINE_STEPS.find((s) => s.id === activeStage) || PIPELINE_STEPS[0];
@@ -188,7 +194,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
             >
               {currentStep.plainExplanation}
             </p>
-            <div className="pt-2">
+            <div className="pt-2 flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => onSelectDistrictAndScroll(currentStep.districtId)}
@@ -197,6 +203,20 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                 <span>Inspect in 3D City</span>
                 <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
+              {onOpenRoadmapDrawer && (
+                <button
+                  type="button"
+                  onClick={() => onOpenRoadmapDrawer(currentStep.districtId)}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 font-mono text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                    isNight
+                      ? 'border-violet-400/50 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 hover:text-white'
+                      : 'border-violet-600/40 bg-violet-50 text-violet-900 hover:bg-violet-100'
+                  }`}
+                >
+                  <Layers aria-hidden="true" className="h-3.5 w-3.5" />
+                  <span>View Roadmap &amp; Landmarks</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -267,13 +287,13 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {DISTRICTS.map((district, index) => {
               const isSelected = selectedDistrict === district.id;
+              const progress = getDistrictProgress
+                ? getDistrictProgress(district.id)
+                : null;
               return (
-                <button
+                <div
                   key={district.id}
-                  type="button"
-                  onClick={() => onSelectDistrictAndScroll(district.id)}
-                  aria-pressed={isSelected}
-                  className={`group flex flex-col justify-between rounded-xl border p-4 text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                  className={`group flex flex-col justify-between rounded-xl border p-4 text-left transition-all ${
                     isSelected
                       ? isNight
                         ? 'border-cyan-400 bg-cyan-500/15 shadow-lg shadow-cyan-500/10'
@@ -294,13 +314,30 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                       >
                         {DISTRICT_ICONS[district.id]}
                       </span>
-                      <span
-                        className={`font-mono text-[10px] uppercase font-semibold ${
-                          isNight ? 'text-amber-400' : 'text-amber-700'
-                        }`}
-                      >
-                        0{index + 1} · {district.metrics.throughput}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {progress && (
+                          <span
+                            className={`rounded-md border px-1.5 py-0.5 font-mono text-[9px] font-bold ${
+                              progress.completed === progress.total
+                                ? isNight
+                                  ? 'border-emerald-400/50 bg-emerald-500/20 text-emerald-300'
+                                  : 'border-emerald-600/40 bg-emerald-100 text-emerald-900'
+                                : isNight
+                                ? 'border-slate-700 bg-slate-800/80 text-slate-300'
+                                : 'border-slate-300 bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {progress.completed}/{progress.total}
+                          </span>
+                        )}
+                        <span
+                          className={`font-mono text-[10px] uppercase font-semibold ${
+                            isNight ? 'text-amber-400' : 'text-amber-700'
+                          }`}
+                        >
+                          0{index + 1} · {district.metrics.throughput}
+                        </span>
+                      </div>
                     </div>
                     <h4
                       className={`mt-3 font-semibold text-sm transition-colors ${
@@ -321,18 +358,45 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                   </div>
 
                   <div
-                    className={`mt-3 pt-2.5 border-t flex items-center justify-between font-mono text-[10px] font-semibold ${
-                      isNight
-                        ? 'border-slate-800/60 text-cyan-400'
-                        : 'border-slate-200 text-cyan-700'
+                    className={`mt-3.5 pt-2.5 border-t flex flex-col gap-2 ${
+                      isNight ? 'border-slate-800/60' : 'border-slate-200'
                     }`}
                   >
-                    <span>{district.metrics.activeUnits}</span>
-                    <span className="group-hover:translate-x-0.5 transition-transform">
-                      Explore →
-                    </span>
+                    <div
+                      className={`flex items-center justify-between font-mono text-[10px] ${
+                        isNight ? 'text-slate-400' : 'text-slate-600'
+                      }`}
+                    >
+                      <span>{district.metrics.activeUnits}</span>
+                      <button
+                        type="button"
+                        onClick={() => onSelectDistrictAndScroll(district.id)}
+                        className={`font-semibold hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded px-1 ${
+                          isNight ? 'text-cyan-400' : 'text-cyan-700'
+                        }`}
+                      >
+                        Focus 3D →
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onOpenRoadmapDrawer
+                          ? onOpenRoadmapDrawer(district.id)
+                          : onSelectDistrictAndScroll(district.id)
+                      }
+                      className={`w-full inline-flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-mono text-[10px] font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                        isNight
+                          ? 'border-cyan-500/35 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 hover:text-white'
+                          : 'border-cyan-600/35 bg-cyan-50 text-cyan-900 hover:bg-cyan-100'
+                      }`}
+                    >
+                      <Layers aria-hidden="true" className="h-3 w-3" />
+                      <span>View Roadmap &amp; Landmarks</span>
+                    </button>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

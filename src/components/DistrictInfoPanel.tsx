@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Share2,
+  Layers,
 } from 'lucide-react';
 import {
   DISTRICTS,
@@ -17,23 +18,28 @@ import {
   DistrictData,
   DistrictId,
 } from '@/data/districts';
+import type { ProgressStats } from '@/hooks/useRoadmapProgress';
 
 interface DistrictInfoPanelProps {
   district: DistrictData | null;
   isFlowHighlighted: boolean;
   isNight: boolean;
+  districtProgress?: ProgressStats;
   onClose: () => void;
   onToggleDataFlow: (id: DistrictId) => void;
   onSelectDistrict: (id: DistrictId) => void;
+  onOpenDeepDiveDrawer?: () => void;
 }
 
 export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
   district,
   isFlowHighlighted,
   isNight,
+  districtProgress,
   onClose,
   onToggleDataFlow,
   onSelectDistrict,
+  onOpenDeepDiveDrawer,
 }) => {
   if (!district) return null;
 
@@ -51,6 +57,8 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
         exit={{ opacity: 0, x: 24, scale: 0.98 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
         aria-label={`${district.name} details`}
+        onWheel={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
         className={`pointer-events-auto w-full max-w-[390px] rounded-2xl p-4 sm:p-5 transition-colors ${
           isNight
             ? 'hud-glass-dark text-slate-100'
@@ -297,9 +305,30 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
           )}
         </div>
 
+        {/* Deep-Dive Zero-to-Hero Roadmap & Landmarks CTA */}
+        {onOpenDeepDiveDrawer && (
+          <div className="mt-3.5">
+            <button
+              type="button"
+              onClick={onOpenDeepDiveDrawer}
+              className="w-full inline-flex items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-cyan-400 via-sky-400 to-violet-400 px-3.5 py-2.5 font-mono text-xs font-bold text-slate-950 shadow-lg shadow-cyan-500/25 hover:brightness-110 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Layers aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span>Explore Zero-to-Hero Roadmap &amp; Landmarks [Enter]</span>
+              </span>
+              {districtProgress && (
+                <span className="rounded-md bg-slate-950/20 px-1.5 py-0.5 text-[10px]">
+                  {districtProgress.completed}/{districtProgress.total}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Action Row: Show Data Flow + Prev/Next */}
         <div
-          className={`mt-3.5 flex items-center justify-between gap-2 pt-3 border-t ${
+          className={`mt-3 flex items-center justify-between gap-2 pt-3 border-t ${
             isNight ? 'border-slate-800/80' : 'border-slate-200'
           }`}
         >

@@ -11,6 +11,7 @@ import {
   Maximize2,
   Minimize2,
   Terminal,
+  Award,
 } from 'lucide-react';
 import {
   DISTRICTS,
@@ -21,9 +22,11 @@ import {
   PipelineStageId,
 } from '@/data/districts';
 import { DistrictInfoPanel } from '@/components/DistrictInfoPanel';
+import { DistrictDeepDiveDrawer } from '@/components/DistrictDeepDiveDrawer';
 import { SceneControls } from '@/components/SceneControls';
 import { PipelineTimeline } from '@/components/PipelineTimeline';
 import { SystemStatusPanel, HeroStatusHUD } from '@/components/SystemStatusPanel';
+import { useRoadmapProgress } from '@/hooks/useRoadmapProgress';
 
 const NeuralCityScene = dynamic(
   () => import('@/components/NeuralCityScene').then((mod) => mod.NeuralCityScene),
@@ -55,6 +58,15 @@ export default function HomePage() {
   const [forceSimplified2D, setForceSimplified2D] = useState<boolean>(false);
   const [heroMinimized, setHeroMinimized] = useState<boolean>(false);
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>(DEMO_SCENARIOS[0].id);
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+
+  const {
+    isCompleted,
+    toggleMilestone,
+    getDistrictProgress,
+    getTotalCityMastery,
+  } = useRoadmapProgress();
+  const cityMastery = getTotalCityMastery();
 
   // Camera state adjustments
   const [cameraZoomDelta, setCameraZoomDelta] = useState<number>(0);
@@ -112,8 +124,10 @@ export default function HomePage() {
     if (id) {
       setActivePipelineStage(DISTRICT_MAP[id].pipelineStage);
       setHighlightedFlowDistrict((prev) => (prev && prev !== id ? null : prev));
+      setIsDrawerOpen(true);
     } else {
       setHighlightedFlowDistrict(null);
+      setIsDrawerOpen(false);
     }
   }, []);
 
@@ -125,6 +139,7 @@ export default function HomePage() {
     setSelectedDistrict(null);
     setHighlightedFlowDistrict(null);
     setDemoStepIndex(null);
+    setIsDrawerOpen(false);
     setCameraZoomDelta(0);
     setCameraAzimuthDelta(0);
     setCameraResetTrigger((c) => c + 1);
@@ -137,6 +152,7 @@ export default function HomePage() {
     } else {
       setIsPaused(false);
       setHeroMinimized(true);
+      setIsDrawerOpen(false);
       setDemoStepIndex(0);
     }
   }, [demoStepIndex]);
@@ -145,6 +161,7 @@ export default function HomePage() {
     setHeroMinimized(true);
     setSelectedDistrict('model-core');
     setActivePipelineStage('model-core');
+    setIsDrawerOpen(true);
     cityViewportRef.current?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
   };
 
@@ -168,24 +185,51 @@ export default function HomePage() {
     cityViewportRef.current?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
   };
 
-  // Keyboard navigation shortcuts (1-8 for districts, Escape to deselect, R to reset)
+  const handleOpenRoadmapDrawer = useCallback(
+    (districtId: DistrictId) => {
+      setSelectedDistrict(districtId);
+      setActivePipelineStage(DISTRICT_MAP[districtId].pipelineStage);
+      setHeroMinimized(true);
+      setIsDrawerOpen(true);
+      cityViewportRef.current?.scrollIntoView({
+        behavior: reducedMotion ? 'auto' : 'smooth',
+      });
+    },
+    [reducedMotion]
+  );
+
+  // Keyboard navigation shortcuts (1-8 for districts, Escape to close drawer/panel, R to reset)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA' ||
-        document.activeElement?.tagName === 'BUTTON'
-      ) {
-        if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
+        if (isDrawerOpen) {
+          setIsDrawerOpen(false);
+        } else {
           handleSelectDistrict(null);
         }
         return;
       }
 
-      if (e.key === 'Escape') {
-        handleSelectDistrict(null);
-      } else if (e.key === 'r' || e.key === 'R') {
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        document.activeElement?.tagName === 'BUTTON'
+      ) {
+        return;
+      }
+
+      if (e.key === 'r' || e.key === 'R') {
         handleResetCamera();
+      } else if (e.key === 'Enter' && selectedDistrict && !isDrawerOpen) {
+        setIsDrawerOpen(true);
+      } else if (e.key === 'ArrowLeft' && selectedDistrict && isDrawerOpen) {
+        const idx = DISTRICTS.findIndex((d) => d.id === selectedDistrict);
+        const prev = DISTRICTS[(idx - 1 + DISTRICTS.length) % DISTRICTS.length];
+        if (prev) handleSelectDistrict(prev.id);
+      } else if (e.key === 'ArrowRight' && selectedDistrict && isDrawerOpen) {
+        const idx = DISTRICTS.findIndex((d) => d.id === selectedDistrict);
+        const next = DISTRICTS[(idx + 1) % DISTRICTS.length];
+        if (next) handleSelectDistrict(next.id);
       } else if (e.key >= '1' && e.key <= '8') {
         const idx = parseInt(e.key, 10) - 1;
         if (DISTRICTS[idx]) {
@@ -195,7 +239,7 @@ export default function HomePage() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleSelectDistrict, handleResetCamera]);
+  }, [handleSelectDistrict, handleResetCamera, isDrawerOpen, selectedDistrict]);
 
   const activeDemoStep =
     demoStepIndex !== null ? DEMO_JOURNEY_STEPS[demoStepIndex] : null;
@@ -293,6 +337,34 @@ export default function HomePage() {
                 Status
               </span>
             </div>
+
+            {/* Persistent Roadmap & City Mastery Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                if (!selectedDistrict) {
+                  setSelectedDistrict('input-gateway');
+                  setActivePipelineStage('input');
+                  setIsDrawerOpen(true);
+                } else {
+                  setIsDrawerOpen((o) => !o);
+                }
+              }}
+              aria-pressed={isDrawerOpen}
+              title="Open Zero-to-Hero AI Engineering Roadmap & Landmarks"
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 font-mono text-[11px] font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                isDrawerOpen
+                  ? 'border-cyan-400 bg-cyan-400 text-slate-950 shadow-sm shadow-cyan-500/20'
+                  : isNight
+                  ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
+                  : 'border-cyan-600/40 bg-cyan-50 text-cyan-900 hover:bg-cyan-100'
+              }`}
+            >
+              <Award aria-hidden="true" className="h-3.5 w-3.5" />
+              <span>
+                Roadmap · {cityMastery.completed}/{cityMastery.total}
+              </span>
+            </button>
 
             {/* Reduced Motion Toggle */}
             <button
@@ -560,16 +632,33 @@ export default function HomePage() {
                 </AnimatePresence>
               </div>
 
-              {/* Right Column: Selected District Info Panel OR Hover Preview Hint */}
+              {/* Right Column: Deep-Dive Roadmap Drawer OR Selected District Info Panel OR Hover Preview Hint */}
               <div className="w-full lg:w-auto flex flex-col items-end">
-                {activeDistrictObj ? (
+                {activeDistrictObj && isDrawerOpen ? (
+                  <DistrictDeepDiveDrawer
+                    districtId={activeDistrictObj.id}
+                    isOpen={isDrawerOpen}
+                    isNight={isNight}
+                    isFlowHighlighted={highlightedFlowDistrict === activeDistrictObj.id}
+                    isCompleted={isCompleted}
+                    onToggleMilestone={toggleMilestone}
+                    getDistrictProgress={getDistrictProgress}
+                    getTotalCityMastery={getTotalCityMastery}
+                    onClose={() => setIsDrawerOpen(false)}
+                    onMinimizeToCompactHud={() => setIsDrawerOpen(false)}
+                    onSelectDistrict={(id) => handleSelectDistrict(id)}
+                    onToggleDataFlow={handleToggleDataFlow}
+                  />
+                ) : activeDistrictObj ? (
                   <DistrictInfoPanel
                     district={activeDistrictObj}
                     isFlowHighlighted={highlightedFlowDistrict === activeDistrictObj.id}
                     isNight={isNight}
+                    districtProgress={getDistrictProgress(activeDistrictObj.id)}
                     onClose={() => handleSelectDistrict(null)}
                     onToggleDataFlow={handleToggleDataFlow}
                     onSelectDistrict={(id) => handleSelectDistrict(id)}
+                    onOpenDeepDiveDrawer={() => setIsDrawerOpen(true)}
                   />
                 ) : (
                   <div
@@ -686,8 +775,10 @@ export default function HomePage() {
           activeStage={activePipelineStage}
           selectedDistrict={selectedDistrict}
           isNight={isNight}
+          getDistrictProgress={getDistrictProgress}
           onSelectStage={handleSelectStageFromTimeline}
           onSelectDistrictAndScroll={handleSelectDistrictAndScrollToCity}
+          onOpenRoadmapDrawer={handleOpenRoadmapDrawer}
         />
 
         {/* ==================== SYSTEM ACTIVITY TELEMETRY SECTION ==================== */}
