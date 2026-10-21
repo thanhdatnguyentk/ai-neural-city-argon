@@ -8,16 +8,15 @@ import {
   GitBranch,
   Sparkles,
   MousePointerClick,
-  ChevronRight,
-  Eye,
-  VolumeX,
   Maximize2,
   Minimize2,
+  Terminal,
 } from 'lucide-react';
 import {
   DISTRICTS,
   DISTRICT_MAP,
   DEMO_JOURNEY_STEPS,
+  DEMO_SCENARIOS,
   DistrictId,
   PipelineStageId,
 } from '@/data/districts';
@@ -55,6 +54,7 @@ export default function HomePage() {
   const [reducedMotion, setReducedMotion] = useState<boolean>(false);
   const [forceSimplified2D, setForceSimplified2D] = useState<boolean>(false);
   const [heroMinimized, setHeroMinimized] = useState<boolean>(false);
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string>(DEMO_SCENARIOS[0].id);
 
   // Camera state adjustments
   const [cameraZoomDelta, setCameraZoomDelta] = useState<number>(0);
@@ -64,6 +64,9 @@ export default function HomePage() {
   // Simulated Data Journey Demo state
   const [demoStepIndex, setDemoStepIndex] = useState<number | null>(null);
   const cityViewportRef = useRef<HTMLDivElement>(null);
+
+  const activeScenario =
+    DEMO_SCENARIOS.find((s) => s.id === selectedScenarioId) || DEMO_SCENARIOS[0];
 
   // Detect OS prefers-reduced-motion on mount
   useEffect(() => {
@@ -95,7 +98,6 @@ export default function HomePage() {
       if (demoStepIndex + 1 < DEMO_JOURNEY_STEPS.length) {
         setDemoStepIndex(demoStepIndex + 1);
       } else {
-        // End on Output Terminal
         setSelectedDistrict('output-terminal');
         setActivePipelineStage('output');
         setDemoStepIndex(null);
@@ -216,25 +218,29 @@ export default function HomePage() {
       <header
         className={`fixed top-0 left-0 right-0 z-40 border-b backdrop-blur-md transition-colors ${
           isNight
-            ? 'border-slate-800/80 bg-[#040814]/80'
-            : 'border-slate-300/80 bg-white/85'
+            ? 'border-slate-800/80 bg-[#040814]/85'
+            : 'border-slate-300/80 bg-white/90'
         }`}
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-2.5 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handleResetCamera}
-              className="flex items-center gap-2.5 text-left group cursor-pointer"
+              className="flex items-center gap-2.5 text-left group cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/50 bg-cyan-500/15 text-cyan-400 shadow-sm shadow-cyan-500/20">
-                <Compass className="h-4 w-4" />
+                <Compass aria-hidden="true" className="h-4 w-4" />
               </span>
               <div>
                 <span className="block font-mono text-xs font-bold tracking-wider uppercase">
                   AI Neural City
                 </span>
-                <span className="block font-mono text-[10px] text-cyan-400">
+                <span
+                  className={`block font-mono text-[10px] ${
+                    isNight ? 'text-cyan-400' : 'text-cyan-700 font-semibold'
+                  }`}
+                >
                   Isometric System Visualizer
                 </span>
               </div>
@@ -247,19 +253,19 @@ export default function HomePage() {
           >
             <a
               href="#interactive-city"
-              className="hover:text-cyan-400 transition-colors"
+              className="rounded px-1.5 py-0.5 hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
               01. Interactive City
             </a>
             <a
               href="#ai-pipeline-section"
-              className="hover:text-cyan-400 transition-colors"
+              className="rounded px-1.5 py-0.5 hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
               02. AI Pipeline
             </a>
             <a
               href="#system-activity-section"
-              className="hover:text-cyan-400 transition-colors"
+              className="rounded px-1.5 py-0.5 hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
               03. System Activity
             </a>
@@ -267,17 +273,23 @@ export default function HomePage() {
 
           <div className="flex items-center gap-2">
             {/* Color Legend Pills on Desktop */}
-            <div className="hidden xl:flex items-center gap-3 rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1 font-mono text-[10px] text-slate-300">
+            <div
+              className={`hidden xl:flex items-center gap-3 rounded-full border px-3 py-1 font-mono text-[10px] ${
+                isNight
+                  ? 'border-slate-800 bg-slate-950/75 text-slate-300'
+                  : 'border-slate-300 bg-slate-100 text-slate-700'
+              }`}
+            >
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#00F0FF]" />
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#00F0FF]" />
                 Data Flow
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
                 Neural Activity
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#F59E0B]" />
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#F59E0B]" />
                 Status
               </span>
             </div>
@@ -288,9 +300,11 @@ export default function HomePage() {
               onClick={() => setReducedMotion((r) => !r)}
               aria-pressed={reducedMotion}
               title="Toggle Reduced Motion"
-              className={`rounded-xl border px-2.5 py-1.5 font-mono text-[11px] transition-colors cursor-pointer ${
+              className={`rounded-xl border px-2.5 py-1.5 font-mono text-[11px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                 reducedMotion
-                  ? 'border-amber-400/60 bg-amber-500/20 text-amber-300'
+                  ? isNight
+                    ? 'border-amber-400/60 bg-amber-500/20 text-amber-300'
+                    : 'border-amber-600 bg-amber-100 text-amber-900 font-semibold'
                   : isNight
                   ? 'border-slate-800 bg-slate-900/80 text-slate-300 hover:border-slate-700'
                   : 'border-slate-300 bg-slate-100 text-slate-700'
@@ -308,7 +322,7 @@ export default function HomePage() {
           id="interactive-city"
           ref={cityViewportRef}
           aria-label="Interactive 3D AI Neural City"
-          className={`relative h-screen min-h-[740px] w-full overflow-hidden pt-14 ${
+          className={`relative h-screen min-h-[760px] w-full overflow-hidden pt-14 ${
             isNight ? 'bg-radial-city' : 'bg-radial-city-day'
           }`}
         >
@@ -330,26 +344,27 @@ export default function HomePage() {
               cameraAzimuthDelta={cameraAzimuthDelta}
               cameraResetTrigger={cameraResetTrigger}
               forceSimplified2D={forceSimplified2D}
+              heroMinimized={heroMinimized}
               onSelectDistrict={handleSelectDistrict}
               onHoverDistrict={setHoveredDistrict}
             />
           </div>
 
-          {/* Foreground HUD Layer (pointer-events-none wrapper so 3D canvas stays draggable/clickable) */}
-          <div className="pointer-events-none relative z-10 mx-auto flex h-full max-w-7xl flex-col justify-between p-4 sm:p-6 lg:p-8">
-            {/* TOP ROW: Hero Overlay Card (Left) + System Status HUD / District Detail Panel (Right) */}
+          {/* Foreground HUD Layer */}
+          <div className="pointer-events-none relative z-20 mx-auto flex h-full max-w-[1600px] flex-col justify-between p-4 sm:p-6">
+            {/* TOP ROW: Compact Hero Overlay Card (Left) + District Detail Panel (Right) */}
             <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
-              {/* Left Column: Hero Panel & Live Demo Narration */}
-              <div className="flex flex-col gap-3 w-full max-w-md">
+              {/* Left Column: Compact Hero Panel & Live Demo Narration */}
+              <div className="flex flex-col gap-2.5 w-full max-w-[360px]">
                 {!heroMinimized ? (
                   <motion.div
-                    initial={{ opacity: 0, y: 14 }}
+                    initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35 }}
-                    className={`pointer-events-auto relative rounded-2xl border p-5 backdrop-blur-xl shadow-2xl ${
+                    transition={{ duration: 0.3 }}
+                    className={`pointer-events-auto relative rounded-2xl p-4 sm:p-5 transition-colors ${
                       isNight
-                        ? 'border-slate-700/80 bg-[#070E20]/88 text-slate-100 shadow-black/60'
-                        : 'border-slate-300 bg-white/92 text-slate-900 shadow-slate-400/30'
+                        ? 'hud-glass-dark text-slate-100'
+                        : 'hud-glass-light text-slate-900'
                     }`}
                   >
                     <button
@@ -357,48 +372,110 @@ export default function HomePage() {
                       onClick={() => setHeroMinimized(true)}
                       title="Minimize intro card for full-screen city view"
                       aria-label="Minimize intro card"
-                      className="absolute top-3.5 right-3.5 rounded-lg border border-slate-700/70 bg-slate-900/60 p-1.5 text-slate-400 hover:text-white cursor-pointer"
+                      className={`absolute top-3.5 right-3.5 rounded-lg border p-1.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                        isNight
+                          ? 'border-slate-700/70 bg-slate-900/60 text-slate-400 hover:text-white'
+                          : 'border-slate-300 bg-slate-100 text-slate-600 hover:text-slate-900'
+                      }`}
                     >
-                      <Minimize2 className="h-3.5 w-3.5" />
+                      <Minimize2 aria-hidden="true" className="h-3.5 w-3.5" />
                     </button>
 
-                    <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/40 bg-cyan-500/10 px-3 py-0.5 font-mono text-[10px] font-bold tracking-widest uppercase text-cyan-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                    <div
+                      className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-widest uppercase ${
+                        isNight
+                          ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400'
+                          : 'border-cyan-600/40 bg-cyan-50 text-cyan-800'
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse"
+                      />
                       AN INTERACTIVE AI SYSTEM
                     </div>
 
-                    <h1 className="mt-2.5 text-2xl sm:text-3xl font-bold tracking-tight">
+                    <h1 className="mt-2 text-2xl font-bold tracking-tight">
                       Inside the Neural City
                     </h1>
 
                     <p
-                      className={`mt-1.5 text-sm leading-relaxed ${
+                      className={`mt-1 text-xs leading-relaxed ${
                         isNight ? 'text-slate-300' : 'text-slate-600'
                       }`}
                     >
-                      Explore how data becomes intelligence. Each architectural district represents one stage of an artificial intelligence pipeline.
+                      Explore how data becomes intelligence. Each architectural district represents one stage of an AI pipeline.
                     </p>
 
-                    <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                    {/* Interactive Workload Scenario Selector */}
+                    <div
+                      className={`mt-3 rounded-xl border p-2.5 ${
+                        isNight
+                          ? 'border-slate-800 bg-slate-950/70'
+                          : 'border-slate-200 bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between font-mono text-[10px] uppercase text-cyan-400">
+                        <span className="flex items-center gap-1">
+                          <Terminal aria-hidden="true" className="h-3 w-3" />
+                          Active AI Workload
+                        </span>
+                        <span className="text-[9px] text-amber-400">
+                          {activeScenario.badge}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {DEMO_SCENARIOS.map((scen) => {
+                          const isCurrent = scen.id === selectedScenarioId;
+                          return (
+                            <button
+                              key={scen.id}
+                              type="button"
+                              onClick={() => setSelectedScenarioId(scen.id)}
+                              aria-pressed={isCurrent}
+                              className={`rounded-lg px-2 py-1 font-mono text-[10px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                                isCurrent
+                                  ? 'bg-cyan-400 text-slate-950 font-bold'
+                                  : isNight
+                                  ? 'bg-slate-900 text-slate-300 hover:text-white'
+                                  : 'bg-slate-200 text-slate-700 hover:text-slate-950'
+                              }`}
+                            >
+                              {scen.badge}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p
+                        className={`mt-1.5 font-mono text-[10px] truncate ${
+                          isNight ? 'text-slate-300' : 'text-slate-700'
+                        }`}
+                        title={activeScenario.samplePrompt}
+                      >
+                        {activeScenario.samplePrompt}
+                      </p>
+                    </div>
+
+                    <div className="mt-3.5 flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={handleExploreCityClick}
-                        className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 font-mono text-xs font-bold text-slate-950 shadow-lg shadow-cyan-500/25 hover:bg-cyan-300 transition-all cursor-pointer"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-400 px-3.5 py-2 font-mono text-xs font-bold text-slate-950 shadow-lg shadow-cyan-500/25 hover:bg-cyan-300 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                       >
-                        <Compass className="h-4 w-4" />
+                        <Compass aria-hidden="true" className="h-3.5 w-3.5" />
                         <span>Explore the city</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={handleViewPipelineClick}
-                        className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 font-mono text-xs font-semibold transition-colors cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 font-mono text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                           isNight
                             ? 'border-slate-700 bg-slate-900/90 text-slate-200 hover:border-cyan-400 hover:text-white'
                             : 'border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200'
                         }`}
                       >
-                        <GitBranch className="h-4 w-4 text-cyan-400" />
+                        <GitBranch aria-hidden="true" className="h-3.5 w-3.5 text-cyan-400" />
                         <span>View the AI pipeline</span>
                       </button>
                     </div>
@@ -408,15 +485,18 @@ export default function HomePage() {
                     <button
                       type="button"
                       onClick={() => setHeroMinimized(false)}
-                      className={`inline-flex items-center gap-2.5 rounded-2xl border px-4 py-2.5 font-mono text-xs font-semibold shadow-xl backdrop-blur-xl transition-all cursor-pointer ${
+                      className={`inline-flex items-center gap-2.5 rounded-2xl px-4 py-2.5 font-mono text-xs font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                         isNight
-                          ? 'border-slate-700/80 bg-[#070E20]/90 text-slate-200 hover:border-cyan-400'
-                          : 'border-slate-300 bg-white/90 text-slate-900'
+                          ? 'hud-glass-dark text-slate-200 hover:border-cyan-400'
+                          : 'hud-glass-light text-slate-900'
                       }`}
                     >
-                      <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                      <span
+                        aria-hidden="true"
+                        className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse"
+                      />
                       <span>Inside the Neural City</span>
-                      <Maximize2 className="h-3.5 w-3.5 text-cyan-400" />
+                      <Maximize2 aria-hidden="true" className="h-3.5 w-3.5 text-cyan-400" />
                     </button>
                   </div>
                 )}
@@ -440,7 +520,7 @@ export default function HomePage() {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-amber-400">
-                          <Sparkles className="h-3.5 w-3.5" />
+                          <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
                           {activeDemoStep.headline}
                         </span>
                         <button
@@ -493,17 +573,24 @@ export default function HomePage() {
                   />
                 ) : (
                   <div
-                    className={`pointer-events-auto hidden sm:flex items-center gap-2.5 rounded-2xl border px-4 py-2.5 backdrop-blur-xl shadow-lg ${
+                    className={`pointer-events-auto hidden sm:flex items-center gap-2.5 rounded-2xl px-4 py-2.5 ${
                       isNight
-                        ? 'border-slate-700/80 bg-[#070E20]/85 text-slate-200'
-                        : 'border-slate-300 bg-white/90 text-slate-800'
+                        ? 'hud-glass-dark text-slate-200'
+                        : 'hud-glass-light text-slate-800'
                     }`}
                   >
-                    <MousePointerClick className="h-4 w-4 text-cyan-400 shrink-0" />
+                    <MousePointerClick
+                      aria-hidden="true"
+                      className="h-4 w-4 text-cyan-400 shrink-0"
+                    />
                     <div className="text-xs">
                       {hoveredDistrictObj ? (
                         <span>
-                          <strong className="font-mono text-cyan-400">
+                          <strong
+                            className={`font-mono ${
+                              isNight ? 'text-cyan-400' : 'text-cyan-700'
+                            }`}
+                          >
                             {hoveredDistrictObj.name}:
                           </strong>{' '}
                           {hoveredDistrictObj.tagline}
@@ -520,18 +607,20 @@ export default function HomePage() {
             </div>
 
             {/* BOTTOM ROW: Quick District Selector Bar + Scene Controls Toolbar */}
-            <div className="flex flex-col gap-2.5 items-center justify-end w-full">
+            <div className="flex flex-col gap-2 items-center justify-end w-full">
               {/* Touch-Friendly & Keyboard-Accessible District Quick Bar */}
               <div
                 role="navigation"
                 aria-label="City Districts Quick Selector"
-                className={`pointer-events-auto flex items-center gap-1.5 overflow-x-auto max-w-full rounded-2xl border p-1.5 backdrop-blur-xl shadow-xl ${
-                  isNight
-                    ? 'border-slate-800/90 bg-[#070E20]/85'
-                    : 'border-slate-300 bg-white/90'
+                className={`pointer-events-auto flex items-center gap-1.5 overflow-x-auto max-w-full rounded-2xl p-1.5 ${
+                  isNight ? 'hud-glass-dark' : 'hud-glass-light'
                 }`}
               >
-                <span className="px-2.5 font-mono text-[10px] uppercase tracking-wider text-slate-400 shrink-0 hidden md:inline">
+                <span
+                  className={`px-2.5 font-mono text-[10px] uppercase tracking-wider shrink-0 hidden md:inline ${
+                    isNight ? 'text-slate-400' : 'text-slate-600'
+                  }`}
+                >
                   Select a district to explore:
                 </span>
                 {DISTRICTS.map((d, idx) => {
@@ -544,7 +633,7 @@ export default function HomePage() {
                       onMouseEnter={() => setHoveredDistrict(d.id)}
                       onMouseLeave={() => setHoveredDistrict(null)}
                       aria-pressed={active}
-                      className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 font-mono text-[11px] font-medium whitespace-nowrap transition-all cursor-pointer ${
+                      className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 font-mono text-[11px] font-medium whitespace-nowrap transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                         active
                           ? 'bg-cyan-400 text-slate-950 font-bold shadow-md shadow-cyan-500/25'
                           : isNight
@@ -553,12 +642,13 @@ export default function HomePage() {
                       }`}
                     >
                       <span
+                        aria-hidden="true"
                         className="h-2 w-2 rounded-full shrink-0"
                         style={{
                           backgroundColor: active ? '#040814' : d.accentColor,
                         }}
                       />
-                      <span className="opacity-60 text-[9px]">{idx + 1}.</span>
+                      <span className="opacity-65 text-[9px]">0{idx + 1}</span>
                       <span>{d.shortName}</span>
                     </button>
                   );
@@ -620,8 +710,14 @@ export default function HomePage() {
       >
         <div className="mx-auto flex max-w-7xl flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-cyan-400" />
-            <span className="font-bold text-slate-200">AI NEURAL CITY</span>
+            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-cyan-400" />
+            <span
+              className={`font-bold ${
+                isNight ? 'text-slate-200' : 'text-slate-900'
+              }`}
+            >
+              AI NEURAL CITY
+            </span>
             <span>— Interactive 3D Isometric AI System Architecture</span>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-[11px]">

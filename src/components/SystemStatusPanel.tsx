@@ -34,50 +34,89 @@ export const HeroStatusHUD: React.FC<{
   return (
     <div
       aria-label="Simulated System Status"
-      className={`pointer-events-auto rounded-2xl border p-3.5 backdrop-blur-xl shadow-2xl transition-colors ${
+      className={`pointer-events-auto rounded-2xl p-3.5 transition-colors ${
         isNight
-          ? 'border-slate-700/80 bg-[#070E20]/85 text-slate-100'
-          : 'border-slate-300 bg-white/90 text-slate-900'
+          ? 'hud-glass-dark text-slate-100'
+          : 'hud-glass-light text-slate-900'
       }`}
     >
-      <div className="flex items-center justify-between gap-4 border-b border-slate-800/80 pb-2">
+      <div
+        className={`flex items-center justify-between gap-3 border-b pb-2 ${
+          isNight ? 'border-slate-800/80' : 'border-slate-200'
+        }`}
+      >
         <div className="flex items-center gap-2">
           <span
+            aria-hidden="true"
             className={`h-2 w-2 rounded-full ${
               isPaused ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'
             }`}
           />
-          <span className="font-mono text-[11px] font-bold tracking-wider uppercase text-emerald-400">
+          <span
+            className={`font-mono text-[11px] font-bold tracking-wider uppercase ${
+              isNight ? 'text-emerald-400' : 'text-emerald-700'
+            }`}
+          >
             SYSTEM STATUS: {isPaused ? 'STANDBY' : 'ONLINE'}
           </span>
         </div>
-        <span className="rounded bg-slate-800/90 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-slate-400">
+        <span
+          className={`rounded px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider font-semibold ${
+            isNight
+              ? 'bg-slate-800/90 text-slate-300'
+              : 'bg-slate-200 text-slate-700'
+          }`}
+        >
           SIMULATED
         </span>
       </div>
 
-      <div className="mt-2.5 grid grid-cols-3 gap-3 font-mono">
+      <div className="mt-2.5 grid grid-cols-3 gap-2.5 font-mono">
         <div>
-          <span className="block text-[9px] uppercase tracking-wider text-slate-400">
+          <span
+            className={`block text-[9px] uppercase tracking-wider ${
+              isNight ? 'text-slate-400' : 'text-slate-600'
+            }`}
+          >
             ACTIVE NODES
           </span>
-          <span className="mt-0.5 block text-xs font-semibold text-cyan-400">
+          <span
+            className={`mt-0.5 block text-xs font-bold ${
+              isNight ? 'text-cyan-400' : 'text-cyan-700'
+            }`}
+          >
             {activeNodes}
           </span>
         </div>
         <div>
-          <span className="block text-[9px] uppercase tracking-wider text-slate-400">
+          <span
+            className={`block text-[9px] uppercase tracking-wider ${
+              isNight ? 'text-slate-400' : 'text-slate-600'
+            }`}
+          >
             DATA FLOW
           </span>
-          <span className="mt-0.5 block text-xs font-semibold text-sky-300">
+          <span
+            className={`mt-0.5 block text-xs font-bold ${
+              isNight ? 'text-sky-300' : 'text-sky-700'
+            }`}
+          >
             {dataFlowRate}
           </span>
         </div>
         <div>
-          <span className="block text-[9px] uppercase tracking-wider text-slate-400">
+          <span
+            className={`block text-[9px] uppercase tracking-wider ${
+              isNight ? 'text-slate-400' : 'text-slate-600'
+            }`}
+          >
             MODEL LOAD
           </span>
-          <span className="mt-0.5 block text-xs font-semibold text-amber-400">
+          <span
+            className={`mt-0.5 block text-xs font-bold ${
+              isNight ? 'text-amber-400' : 'text-amber-700'
+            }`}
+          >
             {modelLoad}
           </span>
         </div>
@@ -119,6 +158,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
   }, [isPaused, flowSpeed, trainingMode, reducedMotion]);
 
   const activeNodesCount = trainingMode ? 1024 : 896;
+  const isStaticSnapshot = isPaused || reducedMotion;
 
   return (
     <section
@@ -134,17 +174,35 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
             <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-cyan-400" />
+              <Activity
+                aria-hidden="true"
+                className={`h-4 w-4 ${isNight ? 'text-cyan-400' : 'text-cyan-700'}`}
+              />
               <h2
                 id="system-activity-heading"
-                className="font-mono text-sm font-bold uppercase tracking-wider text-cyan-400"
+                className={`font-mono text-sm font-bold uppercase tracking-wider ${
+                  isNight ? 'text-cyan-400' : 'text-cyan-800'
+                }`}
               >
                 System Activity Telemetry
               </h2>
+              <span
+                className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${
+                  isStaticSnapshot
+                    ? isNight
+                      ? 'bg-slate-800 text-slate-300'
+                      : 'bg-slate-200 text-slate-700'
+                    : isNight
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}
+              >
+                {isStaticSnapshot ? 'Static Snapshot' : 'Updating Live'}
+              </span>
             </div>
             <p
               className={`mt-1 text-xs ${
-                isNight ? 'text-slate-400' : 'text-slate-600'
+                isNight ? 'text-slate-300' : 'text-slate-600'
               }`}
             >
               Real-time visualization metrics reflecting the current speed, mode, and pipeline state of the miniature city.
@@ -159,7 +217,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                 : 'border-amber-600/30 bg-amber-50 text-amber-900'
             }`}
           >
-            <Info className="h-4 w-4 shrink-0 text-amber-400" />
+            <Info aria-hidden="true" className="h-4 w-4 shrink-0 text-amber-400" />
             <span>Simulated demonstration values — educational visualization</span>
           </div>
         </div>
@@ -174,14 +232,38 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                 : 'border-slate-200 bg-white'
             }`}
           >
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+            <div
+              className={`flex items-center justify-between text-xs font-mono ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
               <span>DATA PACKETS PROCESSED</span>
-              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+              <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-cyan-400" />
             </div>
-            <div className="mt-2 font-mono text-2xl font-bold text-cyan-400">
+            <div
+              className={`mt-2 font-mono text-2xl font-bold ${
+                isNight ? 'text-cyan-400' : 'text-cyan-700'
+              }`}
+            >
               {packetsProcessed.toLocaleString()}
             </div>
-            <div className="mt-1 font-mono text-[11px] text-slate-400">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 120 22"
+              className="mt-2 h-4 w-full overflow-visible"
+            >
+              <polyline
+                fill="none"
+                stroke="#00F0FF"
+                strokeWidth="1.8"
+                points="0,18 20,14 40,16 60,9 80,11 100,5 120,3"
+              />
+            </svg>
+            <div
+              className={`mt-1 font-mono text-[11px] ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
               +{Math.round(145 * flowSpeed)} pkts/sec ({flowSpeed}x speed)
             </div>
           </div>
@@ -194,14 +276,45 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                 : 'border-slate-200 bg-white'
             }`}
           >
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+            <div
+              className={`flex items-center justify-between text-xs font-mono ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
               <span>ACTIVE MODEL NODES</span>
-              <Network className="h-3.5 w-3.5 text-violet-400" />
+              <Network aria-hidden="true" className="h-3.5 w-3.5 text-violet-400" />
             </div>
-            <div className="mt-2 font-mono text-2xl font-bold text-violet-400">
-              {activeNodesCount} <span className="text-sm font-normal text-slate-400">/ 1,024</span>
+            <div
+              className={`mt-2 font-mono text-2xl font-bold ${
+                isNight ? 'text-violet-400' : 'text-violet-700'
+              }`}
+            >
+              {activeNodesCount}{' '}
+              <span
+                className={`text-sm font-normal ${
+                  isNight ? 'text-slate-400' : 'text-slate-600'
+                }`}
+              >
+                / 1,024
+              </span>
             </div>
-            <div className="mt-1 font-mono text-[11px] text-slate-400">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 120 22"
+              className="mt-2 h-4 w-full overflow-visible"
+            >
+              <polyline
+                fill="none"
+                stroke="#8B5CF6"
+                strokeWidth="1.8"
+                points="0,12 24,10 48,11 72,8 96,8 120,6"
+              />
+            </svg>
+            <div
+              className={`mt-1 font-mono text-[11px] ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
               8 Districts Synchronized
             </div>
           </div>
@@ -214,18 +327,37 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                 : 'border-slate-200 bg-white'
             }`}
           >
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+            <div
+              className={`flex items-center justify-between text-xs font-mono ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
               <span>TRAINING PROGRESS</span>
-              <Cpu className="h-3.5 w-3.5 text-fuchsia-400" />
+              <Cpu aria-hidden="true" className="h-3.5 w-3.5 text-fuchsia-400" />
             </div>
-            <div className="mt-2 font-mono text-2xl font-bold text-fuchsia-400">
+            <div
+              className={`mt-2 font-mono text-2xl font-bold ${
+                isNight ? 'text-fuchsia-400' : 'text-fuchsia-700'
+              }`}
+            >
               {trainingProgress.toFixed(1)}%
             </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+            <div
+              className={`mt-3 h-2 w-full overflow-hidden rounded-full ${
+                isNight ? 'bg-slate-800' : 'bg-slate-200'
+              }`}
+            >
               <div
                 className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400 transition-all duration-500"
                 style={{ width: `${trainingProgress}%` }}
               />
+            </div>
+            <div
+              className={`mt-2 font-mono text-[11px] ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
+              Epoch Loss: 0.038 · Converging
             </div>
           </div>
 
@@ -237,14 +369,38 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                 : 'border-slate-200 bg-white'
             }`}
           >
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+            <div
+              className={`flex items-center justify-between text-xs font-mono ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
               <span>INFERENCE LATENCY</span>
-              <Gauge className="h-3.5 w-3.5 text-sky-400" />
+              <Gauge aria-hidden="true" className="h-3.5 w-3.5 text-sky-400" />
             </div>
-            <div className="mt-2 font-mono text-2xl font-bold text-sky-400">
+            <div
+              className={`mt-2 font-mono text-2xl font-bold ${
+                isNight ? 'text-sky-400' : 'text-sky-700'
+              }`}
+            >
               {latencyMs} ms
             </div>
-            <div className="mt-1 font-mono text-[11px] text-slate-400">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 120 22"
+              className="mt-2 h-4 w-full overflow-visible"
+            >
+              <polyline
+                fill="none"
+                stroke="#38BDF8"
+                strokeWidth="1.8"
+                points="0,11 20,13 40,9 60,12 80,10 100,11 120,10"
+              />
+            </svg>
+            <div
+              className={`mt-1 font-mono text-[11px] ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
               P99 Forward-Pass Decode
             </div>
           </div>
@@ -257,19 +413,32 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                 : 'border-slate-200 bg-white'
             }`}
           >
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+            <div
+              className={`flex items-center justify-between text-xs font-mono ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
               <span>SYSTEM STATUS</span>
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 text-emerald-400" />
             </div>
-            <div className="mt-2 flex items-center gap-2 font-mono text-xl font-bold text-emerald-400">
+            <div
+              className={`mt-2 flex items-center gap-2 font-mono text-xl font-bold ${
+                isNight ? 'text-emerald-400' : 'text-emerald-700'
+              }`}
+            >
               <span
+                aria-hidden="true"
                 className={`h-2.5 w-2.5 rounded-full ${
                   isPaused ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'
                 }`}
               />
               {isPaused ? 'PAUSED' : trainingMode ? 'TRAINING BOOST' : 'OPTIMAL'}
             </div>
-            <div className="mt-1 font-mono text-[11px] text-slate-400">
+            <div
+              className={`mt-3 font-mono text-[11px] ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
               Simulated Demo Telemetry
             </div>
           </div>

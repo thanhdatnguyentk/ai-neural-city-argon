@@ -175,21 +175,35 @@ export const District: React.FC<DistrictProps> = ({
           />
         </mesh>
 
-        {/* Selection / Hover Outer Halo Ring */}
+        {/* Selection / Hover Outer Halo Ring & Holographic Vertical Beacon */}
         {isHighlighted && (
-          <mesh
-            ref={pulseRingRef}
-            position={[0, 0.06, 0]}
-            rotation={[-Math.PI / 2, 0, 0]}
-          >
-            <ringGeometry args={[Math.max(fw, fd) * 0.55, Math.max(fw, fd) * 0.63, 48]} />
-            <meshBasicMaterial
-              color={isSelected ? '#00F0FF' : district.accentColor}
-              transparent
-              opacity={isSelected ? 0.95 : 0.7}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
+          <group>
+            <mesh
+              ref={pulseRingRef}
+              position={[0, 0.06, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
+              <ringGeometry args={[Math.max(fw, fd) * 0.55, Math.max(fw, fd) * 0.64, 48]} />
+              <meshBasicMaterial
+                color={isSelected ? '#00F0FF' : district.accentColor}
+                transparent
+                opacity={isSelected ? 0.95 : 0.72}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            {(isSelected || activeHover) && (
+              <mesh position={[0, 2.6, 0]}>
+                <cylinderGeometry args={[Math.min(fw, fd) * 0.36, Math.min(fw, fd) * 0.44, 5.0, 24, 1, true]} />
+                <meshBasicMaterial
+                  color={isSelected ? '#00F0FF' : district.accentColor}
+                  transparent
+                  opacity={isSelected ? 0.11 : 0.06}
+                  side={THREE.DoubleSide}
+                  depthWrite={false}
+                />
+              </mesh>
+            )}
+          </group>
         )}
 
         {/* Corner Warm Amber Beacons */}
@@ -723,11 +737,11 @@ export const District: React.FC<DistrictProps> = ({
           <Html
             position={[
               0,
-              district.id === 'model-core' ? 4.8 : district.id === 'training-cluster' ? 4.5 : 4.2,
+              district.id === 'model-core' ? 4.85 : district.id === 'training-cluster' ? 4.55 : 4.25,
               0,
             ]}
             center
-            zIndexRange={[20, 0]}
+            zIndexRange={[8, 0]}
           >
             <div
               onClick={(e) => {
@@ -743,19 +757,19 @@ export const District: React.FC<DistrictProps> = ({
                 onHover(null);
               }}
               className={`group cursor-pointer select-none transition-transform duration-200 ${
-                activeHover || isSelected ? 'scale-105 z-30' : 'opacity-95 hover:opacity-100'
+                activeHover || isSelected ? 'scale-105 z-10' : 'opacity-95 hover:opacity-100'
               }`}
             >
               {/* Compact District Pill */}
               <div
                 className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 shadow-lg transition-colors ${
                   isSelected
-                    ? 'border-cyan-400 bg-slate-950 text-white shadow-cyan-500/30'
+                    ? 'border-cyan-400 bg-slate-950 text-white shadow-cyan-500/30 ring-1 ring-cyan-400/50'
                     : activeHover
                     ? 'border-cyan-400/80 bg-slate-900 text-white shadow-cyan-500/20'
                     : isNight
                     ? 'border-slate-700/90 bg-slate-950/90 text-slate-100'
-                    : 'border-slate-300 bg-white/95 text-slate-900'
+                    : 'border-slate-400/80 bg-white/95 text-slate-900 shadow-slate-300/60'
                 }`}
               >
                 <span
@@ -765,6 +779,9 @@ export const District: React.FC<DistrictProps> = ({
                     boxShadow: `0 0 8px ${district.accentColor}`,
                   }}
                 />
+                <span className="font-mono text-[9px] opacity-60 font-semibold">
+                  0{index + 1}
+                </span>
                 <span className="font-mono text-[10px] font-bold tracking-wider uppercase whitespace-nowrap">
                   {district.name}
                 </span>
@@ -772,11 +789,27 @@ export const District: React.FC<DistrictProps> = ({
 
               {/* Expanded Hover Tooltip with Short Description */}
               {activeHover && !isSelected && (
-                <div className="mt-1.5 w-56 rounded-xl border border-cyan-500/40 bg-slate-950/95 p-2.5 text-left shadow-2xl">
-                  <p className="text-[11px] leading-snug text-slate-200 font-sans">
+                <div
+                  className={`mt-1.5 w-56 rounded-xl border p-2.5 text-left shadow-2xl ${
+                    isNight
+                      ? 'border-cyan-500/40 bg-slate-950/95 text-slate-100'
+                      : 'border-cyan-600/40 bg-white/95 text-slate-900'
+                  }`}
+                >
+                  <p
+                    className={`text-[11px] leading-snug font-sans ${
+                      isNight ? 'text-slate-200' : 'text-slate-700'
+                    }`}
+                  >
                     {district.tagline}
                   </p>
-                  <div className="mt-1.5 flex items-center justify-between border-t border-slate-800 pt-1.5 font-mono text-[10px] text-cyan-400">
+                  <div
+                    className={`mt-1.5 flex items-center justify-between border-t pt-1.5 font-mono text-[10px] ${
+                      isNight
+                        ? 'border-slate-800 text-cyan-400'
+                        : 'border-slate-200 text-cyan-700 font-semibold'
+                    }`}
+                  >
                     <span>{district.metrics.throughput}</span>
                     <span>Click to inspect →</span>
                   </div>

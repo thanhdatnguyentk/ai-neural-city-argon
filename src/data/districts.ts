@@ -587,6 +587,38 @@ export interface DemoJourneyStep {
   durationMs: number;
 }
 
+export interface DemoScenario {
+  id: string;
+  name: string;
+  badge: string;
+  samplePrompt: string;
+  sampleOutput: string;
+}
+
+export const DEMO_SCENARIOS: DemoScenario[] = [
+  {
+    id: 'multimodal-bird',
+    name: 'Vision + Text: Wildlife ID',
+    badge: 'Multimodal',
+    samplePrompt: 'Image: kingfisher.jpg + "Identify species & river habitat"',
+    sampleOutput: 'Common Kingfisher (Alcedo atthis) — 99.2% confidence. Inhabits slow-flowing clear rivers.',
+  },
+  {
+    id: 'nlp-reasoning',
+    name: 'NLP: Quantum Code Synthesis',
+    badge: 'Language',
+    samplePrompt: 'Prompt: "Write an optimized CUDA kernel for matrix attention"',
+    sampleOutput: 'Generated flash_attention_kernel.cu (1.42x speedup verified across 512 tensor nodes).',
+  },
+  {
+    id: 'cv-autonomous',
+    name: 'Vision: Autonomous Lidar Scan',
+    badge: 'Computer Vision',
+    sampleOutput: '3D Bounding Boxes: [Pedestrian: 14.2m, Cyclist: 8.6m] — Safe Trajectory Locked.',
+    samplePrompt: 'Stream: 60FPS stereo camera + point-cloud frame #4092',
+  },
+];
+
 export const DEMO_JOURNEY_STEPS: DemoJourneyStep[] = [
   {
     stepIndex: 0,

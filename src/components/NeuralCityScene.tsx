@@ -36,6 +36,7 @@ export interface NeuralCitySceneProps {
   cameraAzimuthDelta: number;
   cameraResetTrigger: number;
   forceSimplified2D: boolean;
+  heroMinimized?: boolean;
   onSelectDistrict: (id: DistrictId | null) => void;
   onHoverDistrict: (id: DistrictId | null) => void;
 }
@@ -109,6 +110,7 @@ interface CameraRigProps {
   cameraAzimuthDelta: number;
   cameraResetTrigger: number;
   reducedMotion: boolean;
+  heroMinimized?: boolean;
 }
 
 const CameraRig: React.FC<CameraRigProps> = ({
@@ -117,18 +119,19 @@ const CameraRig: React.FC<CameraRigProps> = ({
   cameraAzimuthDelta,
   cameraResetTrigger,
   reducedMotion,
+  heroMinimized = false,
 }) => {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const { camera, size } = useThree();
 
   const baseZoom = useMemo(() => {
     if (size.width < 640) return 17;
-    if (size.width < 1024) return 23;
-    return 30;
+    if (size.width < 1024) return 22;
+    return 27;
   }, [size.width]);
 
-  const baseOffsetX = size.width >= 1024 ? -2.2 : 0;
-  const baseOffsetZ = size.width >= 1024 ? 2.2 : 0;
+  const baseOffsetX = size.width >= 1024 && !heroMinimized ? -3.6 : 0;
+  const baseOffsetZ = size.width >= 1024 && !heroMinimized ? 3.6 : 0;
 
   const targetVec = useMemo(() => new THREE.Vector3(baseOffsetX, 0.5, baseOffsetZ), [baseOffsetX, baseOffsetZ]);
   const desiredTarget = useMemo(() => new THREE.Vector3(baseOffsetX, 0.5, baseOffsetZ), [baseOffsetX, baseOffsetZ]);
@@ -215,6 +218,7 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
     cameraAzimuthDelta,
     cameraResetTrigger,
     forceSimplified2D,
+    heroMinimized = false,
     onSelectDistrict,
     onHoverDistrict,
   } = props;
@@ -313,6 +317,7 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
             cameraAzimuthDelta={cameraAzimuthDelta}
             cameraResetTrigger={cameraResetTrigger}
             reducedMotion={reducedMotion}
+            heroMinimized={heroMinimized}
           />
 
           {/* Lighting Setup — Bright, crisp isometric diorama illumination */}
