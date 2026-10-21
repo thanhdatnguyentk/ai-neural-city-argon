@@ -13,6 +13,11 @@ import {
   toggleMilestoneInList,
   computeDistrictProgress,
   computeTotalCityMastery,
+  computeDistrictMasteryMetrics,
+  computeAllDistrictsMastery,
+  computeDistrictParticleSpeedMultiplier,
+  computeDistrictTargetEmissive,
+  didDistrictTransitionToMastered,
 } from '../hooks/useRoadmapProgress.ts';
 
 describe('District Zero-to-Hero Roadmap & Landmarks Dataset', () => {
@@ -126,5 +131,51 @@ describe('Roadmap Progress & localStorage Persistence Logic', () => {
     assert.equal(cityMastery.completed, 2);
     assert.equal(cityMastery.total, 32);
     assert.equal(cityMastery.percentage, Math.round((2 / 32) * 100));
+  });
+
+  it('computes 4-tier DistrictMasteryMetrics, emissive boost, and particle overdrive multipliers', () => {
+    const d1Ids = DISTRICT_ROADMAP_MAP['input-gateway'].roadmap.map((m) => m.id);
+
+    // Tier 0: 0/4 (0%)
+    const m0 = computeDistrictMasteryMetrics('input-gateway', []);
+    assert.equal(m0.completedCount, 0);
+    assert.equal(m0.percentage, 0);
+    assert.equal(m0.isMastered, false);
+    assert.equal(computeDistrictParticleSpeedMultiplier(m0), 1.0);
+    assert.equal(computeDistrictTargetEmissive(1.0, m0), 1.0);
+
+    // Tier 2: 2/4 (50%)
+    const m2 = computeDistrictMasteryMetrics('input-gateway', [d1Ids[0], d1Ids[1]]);
+    assert.equal(m2.completedCount, 2);
+    assert.equal(m2.percentage, 50);
+    assert.equal(m2.isMastered, false);
+    assert.ok(Math.abs(computeDistrictParticleSpeedMultiplier(m2) - 1.3) < 1e-6);
+    assert.ok(Math.abs(computeDistrictTargetEmissive(1.0, m2) - (1.0 + 0.5 * 1.15)) < 1e-6);
+
+    // Tier 4: 4/4 (100% Mastered Overdrive)
+    const m4 = computeDistrictMasteryMetrics('input-gateway', d1Ids);
+    assert.equal(m4.completedCount, 4);
+    assert.equal(m4.percentage, 100);
+    assert.equal(m4.isMastered, true);
+    assert.equal(computeDistrictParticleSpeedMultiplier(m4), 2.0);
+    assert.ok(Math.abs(computeDistrictTargetEmissive(1.0, m4) - 2.15) < 1e-6);
+
+    // Transition detection for level-up shockwave
+    assert.equal(
+      didDistrictTransitionToMastered(
+        'input-gateway',
+        [d1Ids[0], d1Ids[1], d1Ids[2]],
+        d1Ids
+      ),
+      true
+    );
+    assert.equal(
+      didDistrictTransitionToMastered('input-gateway', d1Ids, d1Ids),
+      false
+    );
+
+    const allMap = computeAllDistrictsMastery(d1Ids);
+    assert.equal(allMap['input-gateway'].isMastered, true);
+    assert.equal(allMap['model-core'].isMastered, false);
   });
 });

@@ -5,6 +5,10 @@ import { useFrame, ThreeEvent } from '@react-three/fiber';
 import { Html, RoundedBox, Edges } from '@react-three/drei';
 import * as THREE from 'three';
 import { DistrictData, DistrictId } from '@/data/districts';
+import type { DistrictMasteryMetrics } from '@/hooks/useRoadmapProgress';
+import { DistrictProgressRing } from './DistrictProgressRing';
+import { MasteryBeacon } from './MasteryBeacon';
+import { MasteryShockwave } from './MasteryShockwave';
 
 interface DistrictProps {
   district: DistrictData;
@@ -19,6 +23,8 @@ interface DistrictProps {
   trainingMode: boolean;
   isNight: boolean;
   reducedMotion: boolean;
+  masteryMetrics?: DistrictMasteryMetrics;
+  isShockwaveActive?: boolean;
   onSelect: (id: DistrictId) => void;
   onHover: (id: DistrictId | null) => void;
 }
@@ -36,6 +42,8 @@ export const District: React.FC<DistrictProps> = ({
   trainingMode,
   isNight,
   reducedMotion,
+  masteryMetrics,
+  isShockwaveActive = false,
   onSelect,
   onHover,
 }) => {
@@ -49,6 +57,11 @@ export const District: React.FC<DistrictProps> = ({
   const [localHover, setLocalHover] = useState(false);
   const activeHover = isHovered || localHover;
   const isHighlighted = isSelected || activeHover || isPipelineHighlighted || isFlowHighlighted;
+
+  const completedCount = masteryMetrics?.completedCount ?? 0;
+  const isMastered = masteryMetrics?.isMastered ?? false;
+  const masteryRatio = completedCount / 4;
+  const smoothEmissiveRef = useRef<number>(0.9);
 
   const baseColor = isNight ? '#112248' : '#CBD5E1';
   const buildingBodyColor = isNight ? '#1E3A6E' : '#F8FAFC';
@@ -79,12 +92,41 @@ export const District: React.FC<DistrictProps> = ({
       groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetY, 0.18);
       const scaleVal = Math.max(0.35, eased);
       groupRef.current.scale.set(1, scaleVal, 1);
+
+      // Progressive Emissive Boost (I_target = I_0 + p * 1.15) & Harmonic Breathing when Mastered
+      const i0 = isSelected ? 1.8 : activeHover ? 1.5 : isHighlighted ? 1.2 : 0.9;
+      const iTargetBase = i0 + masteryRatio * 1.15;
+      const harmonicWave =
+        isMastered && !isPaused && !reducedMotion
+          ? 0.35 * Math.sin(3.0 * state.clock.elapsedTime)
+          : 0;
+      const desiredEmissive = iTargetBase + harmonicWave;
+      smoothEmissiveRef.current = THREE.MathUtils.lerp(
+        smoothEmissiveRef.current,
+        desiredEmissive,
+        Math.min(1, Math.min(delta, 0.1) * 6)
+      );
+
+      groupRef.current.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh) {
+          const mat = (obj as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          if (mat && mat.isMeshStandardMaterial && mat.emissiveIntensity > 0) {
+            if (mat.userData.baseEmissiveRatio === undefined) {
+              mat.userData.baseEmissiveRatio = mat.emissiveIntensity / i0;
+            }
+            mat.emissiveIntensity =
+              mat.userData.baseEmissiveRatio * smoothEmissiveRef.current;
+          }
+        }
+      });
     }
 
     if (isPaused || reducedMotion) return;
 
+    const masteryAnimBoost = isMastered ? 1.35 : 1 + masteryRatio * 0.2;
     const speedMultiplier =
-      district.id === 'training-cluster' && trainingMode ? flowSpeed * 2.4 : flowSpeed;
+      (district.id === 'training-cluster' && trainingMode ? flowSpeed * 2.4 : flowSpeed) *
+      masteryAnimBoost;
     const t = state.clock.elapsedTime * speedMultiplier;
 
     // 2. District-specific subtle idle animations
@@ -146,10 +188,25 @@ export const District: React.FC<DistrictProps> = ({
   };
 
   const [fw, fd] = district.footprint;
-  const emissiveBoost = isSelected ? 1.8 : activeHover ? 1.5 : isHighlighted ? 1.2 : 0.9;
+  const i0 = isSelected ? 1.8 : activeHover ? 1.5 : isHighlighted ? 1.2 : 0.9;
+  const emissiveBoost = i0 + masteryRatio * 1.15;
+  const crownHeight =
+    district.id === 'model-core'
+      ? 4.3
+      : district.id === 'training-cluster'
+      ? 4.15
+      : district.id === 'output-terminal'
+      ? 4.2
+      : 3.75;
 
   return (
     <group position={district.position}>
+      {/* Level-Up 100% Shockwave Animation */}
+      <MasteryShockwave
+        active={isShockwaveActive}
+        accentColorHex={district.accentColor}
+      />
+
       <group
         ref={groupRef}
         onPointerOver={handlePointerOver}
@@ -164,6 +221,28 @@ export const District: React.FC<DistrictProps> = ({
             metalness={0.25}
           />
         </RoundedBox>
+
+        {/* 4-Segment Holographic Base Progress Ring (0% -> 25% -> 50% -> 75% -> 100%) */}
+        <DistrictProgressRing
+          completedCount={completedCount}
+          footprint={district.footprint}
+          accentColorHex={district.accentColor}
+          isNight={isNight}
+          isPaused={isPaused}
+          reducedMotion={reducedMotion}
+        />
+
+        {/* Ascended 100% Mastery Holographic Crown, Volumetric Beam & Rising Motes */}
+        {isMastered && (
+          <MasteryBeacon
+            accentColorHex={district.accentColor}
+            secondaryColorHex={district.secondaryColor}
+            footprint={district.footprint}
+            crownHeight={crownHeight}
+            isPaused={isPaused}
+            reducedMotion={reducedMotion}
+          />
+        )}
 
         {/* Glowing Base Trim */}
         <mesh position={[0, 0.41, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -785,6 +864,21 @@ export const District: React.FC<DistrictProps> = ({
                 <span className="font-mono text-[10px] font-bold tracking-wider uppercase whitespace-nowrap">
                   {district.name}
                 </span>
+                {isMastered ? (
+                  <span className="ml-0.5 inline-flex items-center rounded-full border border-amber-400/70 bg-amber-500/20 px-1.5 py-0.2 font-mono text-[8px] font-bold tracking-wider text-amber-300 shadow-sm shadow-amber-500/30 whitespace-nowrap">
+                    ★ MASTERED
+                  </span>
+                ) : completedCount > 0 ? (
+                  <span
+                    className="ml-0.5 inline-flex items-center rounded-full px-1.5 py-0.2 font-mono text-[8px] font-bold whitespace-nowrap"
+                    style={{
+                      backgroundColor: `${district.accentColor}25`,
+                      color: isNight ? district.accentColor : '#0F172A',
+                    }}
+                  >
+                    {completedCount}/4
+                  </span>
+                ) : null}
               </div>
 
               {/* Expanded Hover Tooltip with Short Description */}

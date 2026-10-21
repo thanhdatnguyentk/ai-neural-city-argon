@@ -61,12 +61,21 @@ export default function HomePage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
   const {
+    lastMasteredDistrictId,
     isCompleted,
     toggleMilestone,
+    resetAllProgress,
+    replayAwakeningPulse,
     getDistrictProgress,
+    getAllDistrictsMastery,
     getTotalCityMastery,
   } = useRoadmapProgress();
   const cityMastery = getTotalCityMastery();
+  const allDistrictsMastery = getAllDistrictsMastery();
+  const isSingularityMode = cityMastery.percentage === 100;
+  const masteredDistrictsCount = Object.values(allDistrictsMastery).filter(
+    (m) => m.isMastered
+  ).length;
 
   // Camera state adjustments
   const [cameraZoomDelta, setCameraZoomDelta] = useState<number>(0);
@@ -338,6 +347,29 @@ export default function HomePage() {
               </span>
             </div>
 
+            {/* Singularity Mode 100% City Mastery Banner & Controls */}
+            {isSingularityMode && (
+              <div className="hidden lg:flex items-center gap-1.5 rounded-xl border border-amber-400/70 bg-amber-500/15 px-2.5 py-1 font-mono text-[10px] font-bold text-amber-300 shadow-lg shadow-amber-500/20">
+                <span>⚡ NEURAL ARCHITECT: 100% CITY MASTERY</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    replayAwakeningPulse(selectedDistrict || 'model-core')
+                  }
+                  className="ml-1 rounded-md border border-amber-400/50 bg-amber-400/20 px-1.5 py-0.5 text-[9px] text-white hover:bg-amber-400 hover:text-slate-950 transition-colors cursor-pointer"
+                >
+                  Replay Awakening Pulse
+                </button>
+                <button
+                  type="button"
+                  onClick={resetAllProgress}
+                  className="rounded-md border border-slate-700 bg-slate-900/90 px-1.5 py-0.5 text-[9px] text-slate-300 hover:border-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                >
+                  Reset Progress
+                </button>
+              </div>
+            )}
+
             {/* Persistent Roadmap & City Mastery Toggle */}
             <button
               type="button"
@@ -417,6 +449,9 @@ export default function HomePage() {
               cameraResetTrigger={cameraResetTrigger}
               forceSimplified2D={forceSimplified2D}
               heroMinimized={heroMinimized}
+              allDistrictsMastery={allDistrictsMastery}
+              lastMasteredDistrictId={lastMasteredDistrictId}
+              isSingularityMode={isSingularityMode}
               onSelectDistrict={handleSelectDistrict}
               onHoverDistrict={setHoveredDistrict}
             />
@@ -579,6 +614,8 @@ export default function HomePage() {
                   flowSpeed={flowSpeed}
                   trainingMode={trainingMode}
                   isNight={isNight}
+                  masteryCompleted={cityMastery.completed}
+                  masteryTotal={cityMastery.total}
                 />
 
                 {/* Live Demo Journey Stepper Banner */}
@@ -714,6 +751,10 @@ export default function HomePage() {
                 </span>
                 {DISTRICTS.map((d, idx) => {
                   const active = selectedDistrict === d.id;
+                  const mastery = allDistrictsMastery[d.id];
+                  const isMastered = mastery?.isMastered ?? false;
+                  const completedCount = mastery?.completedCount ?? 0;
+
                   return (
                     <button
                       key={d.id}
@@ -722,9 +763,13 @@ export default function HomePage() {
                       onMouseEnter={() => setHoveredDistrict(d.id)}
                       onMouseLeave={() => setHoveredDistrict(null)}
                       aria-pressed={active}
-                      className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 font-mono text-[11px] font-medium whitespace-nowrap transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                      className={`relative overflow-hidden inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 font-mono text-[11px] font-medium whitespace-nowrap transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                         active
                           ? 'bg-cyan-400 text-slate-950 font-bold shadow-md shadow-cyan-500/25'
+                          : isMastered
+                          ? isNight
+                            ? 'border border-amber-400/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'
+                            : 'border border-amber-500/50 bg-amber-50 text-amber-900'
                           : isNight
                           ? 'text-slate-300 hover:bg-slate-800/90 hover:text-white'
                           : 'text-slate-700 hover:bg-slate-200'
@@ -739,6 +784,44 @@ export default function HomePage() {
                       />
                       <span className="opacity-65 text-[9px]">0{idx + 1}</span>
                       <span>{d.shortName}</span>
+                      {isMastered ? (
+                        <span
+                          title="District Mastered (4/4)"
+                          className={`ml-0.5 text-[10px] font-bold ${
+                            active ? 'text-slate-950' : 'text-amber-400'
+                          }`}
+                        >
+                          ★
+                        </span>
+                      ) : completedCount > 0 ? (
+                        <span
+                          className={`ml-0.5 rounded px-1 text-[9px] font-bold ${
+                            active
+                              ? 'bg-slate-950/20 text-slate-950'
+                              : isNight
+                              ? 'bg-slate-800 text-cyan-300'
+                              : 'bg-slate-200 text-cyan-800'
+                          }`}
+                        >
+                          {completedCount}/4
+                        </span>
+                      ) : null}
+
+                      {/* Bottom mini progress bar */}
+                      {completedCount > 0 && (
+                        <span
+                          aria-hidden="true"
+                          className="absolute bottom-0 left-0 h-0.5 transition-all duration-300"
+                          style={{
+                            width: `${(completedCount / 4) * 100}%`,
+                            backgroundColor: active
+                              ? '#040814'
+                              : isMastered
+                              ? '#F59E0B'
+                              : d.accentColor,
+                          }}
+                        />
+                      )}
                     </button>
                   );
                 })}
@@ -788,6 +871,9 @@ export default function HomePage() {
           trainingMode={trainingMode}
           isNight={isNight}
           reducedMotion={reducedMotion}
+          masteryCompleted={cityMastery.completed}
+          masteryTotal={cityMastery.total}
+          masteredDistrictsCount={masteredDistrictsCount}
         />
       </main>
 

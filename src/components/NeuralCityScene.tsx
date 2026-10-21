@@ -19,6 +19,7 @@ import {
 import { District } from './District';
 import { DataFlow } from './DataFlow';
 import { IsometricCityFallback } from './IsometricCityFallback';
+import type { DistrictMasteryMetrics } from '@/hooks/useRoadmapProgress';
 
 export interface NeuralCitySceneProps {
   selectedDistrict: DistrictId | null;
@@ -37,9 +38,69 @@ export interface NeuralCitySceneProps {
   cameraResetTrigger: number;
   forceSimplified2D: boolean;
   heroMinimized?: boolean;
+  allDistrictsMastery?: Record<DistrictId, DistrictMasteryMetrics>;
+  lastMasteredDistrictId?: DistrictId | null;
+  isSingularityMode?: boolean;
   onSelectDistrict: (id: DistrictId | null) => void;
   onHoverDistrict: (id: DistrictId | null) => void;
 }
+
+/** City-Wide Orbital Energy Ring when all 8 districts reach 100% (32/32 Neural Singularity Mode) */
+const SingularityCoreAura: React.FC<{
+  isPaused: boolean;
+  reducedMotion: boolean;
+}> = ({ isPaused, reducedMotion }) => {
+  const outerRingRef = useRef<THREE.Mesh>(null);
+  const innerRingRef = useRef<THREE.Mesh>(null);
+
+  useFrame((_, delta) => {
+    if (isPaused || reducedMotion) return;
+    const dt = Math.min(delta, 0.1);
+    if (outerRingRef.current) {
+      outerRingRef.current.rotation.z += dt * 0.25;
+    }
+    if (innerRingRef.current) {
+      innerRingRef.current.rotation.z -= dt * 0.38;
+    }
+  });
+
+  return (
+    <group position={[0, 0.2, 0]} raycast={() => null}>
+      <mesh
+        ref={outerRingRef}
+        rotation={[-Math.PI / 2, 0, 0]}
+        raycast={() => null}
+      >
+        <ringGeometry args={[17.8, 18.25, 64]} />
+        <meshBasicMaterial
+          color="#00F0FF"
+          transparent
+          opacity={0.75}
+          blending={THREE.AdditiveBlending}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+      <mesh
+        ref={innerRingRef}
+        rotation={[-Math.PI / 2, 0, Math.PI / 6]}
+        raycast={() => null}
+      >
+        <ringGeometry args={[16.8, 17.15, 32]} />
+        <meshBasicMaterial
+          color="#EC4899"
+          transparent
+          opacity={0.6}
+          blending={THREE.AdditiveBlending}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+    </group>
+  );
+};
 
 /** Instanced peripheral micro-modules to frame the isometric city island without clutter */
 const AmbientCityStructures: React.FC<{ isNight: boolean }> = ({ isNight }) => {
@@ -219,6 +280,9 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
     cameraResetTrigger,
     forceSimplified2D,
     heroMinimized = false,
+    allDistrictsMastery,
+    lastMasteredDistrictId = null,
+    isSingularityMode = false,
     onSelectDistrict,
     onHoverDistrict,
   } = props;
@@ -412,6 +476,14 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
           {/* Peripheral Micro-Structures */}
           <AmbientCityStructures isNight={isNight} />
 
+          {/* City-Wide Neural Singularity Orbital Aura (when 32/32 = 100% City Mastery) */}
+          {isSingularityMode && (
+            <SingularityCoreAura
+              isPaused={isPaused}
+              reducedMotion={reducedMotion}
+            />
+          )}
+
           {/* Glowing Data Conduit Network & Particles */}
           <DataFlow
             selectedDistrict={selectedDistrict}
@@ -423,6 +495,8 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
             trainingMode={trainingMode}
             isNight={isNight}
             reducedMotion={reducedMotion}
+            allDistrictsMastery={allDistrictsMastery}
+            isSingularityMode={isSingularityMode}
           />
 
           {/* The 8 Core AI Pipeline Districts */}
@@ -451,6 +525,8 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
                 trainingMode={trainingMode}
                 isNight={isNight}
                 reducedMotion={reducedMotion}
+                masteryMetrics={allDistrictsMastery?.[district.id]}
+                isShockwaveActive={lastMasteredDistrictId === district.id}
                 onSelect={(id) => onSelectDistrict(id)}
                 onHover={onHoverDistrict}
               />

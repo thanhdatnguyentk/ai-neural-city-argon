@@ -5,6 +5,10 @@ import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { DATA_FLOW_PATHS, DistrictId } from '@/data/districts';
+import {
+  DistrictMasteryMetrics,
+  computeDistrictParticleSpeedMultiplier,
+} from '@/hooks/useRoadmapProgress';
 
 interface DataFlowProps {
   selectedDistrict: DistrictId | null;
@@ -16,6 +20,8 @@ interface DataFlowProps {
   trainingMode: boolean;
   isNight: boolean;
   reducedMotion: boolean;
+  allDistrictsMastery?: Record<DistrictId, DistrictMasteryMetrics>;
+  isSingularityMode?: boolean;
 }
 
 interface CurveItem {
@@ -41,6 +47,8 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   trainingMode,
   isNight,
   reducedMotion,
+  allDistrictsMastery,
+  isSingularityMode = false,
 }) => {
   const instancedRef = useRef<THREE.InstancedMesh>(null);
   const heroPacketRef = useRef<THREE.Group>(null);
@@ -55,6 +63,7 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const tempPos = useMemo(() => new THREE.Vector3(), []);
   const highlightColor = useMemo(() => new THREE.Color('#00F0FF'), []);
+  const overdriveColor = useMemo(() => new THREE.Color('#FDE047'), []);
 
   const curves = useMemo<CurveItem[]>(() => {
     return DATA_FLOW_PATHS.map((path) => {
@@ -130,11 +139,28 @@ export const DataFlow: React.FC<DataFlowProps> = ({
       const highlighted = isPathHighlighted(item);
       const isTrainingPath =
         item.to === 'training-cluster' || item.from === 'training-cluster';
+
+      const fromMetrics = allDistrictsMastery?.[item.from];
+      const toMetrics = allDistrictsMastery?.[item.to];
+      const fromMult = fromMetrics
+        ? computeDistrictParticleSpeedMultiplier(fromMetrics)
+        : 1.0;
+      const toMult = toMetrics
+        ? computeDistrictParticleSpeedMultiplier(toMetrics)
+        : 1.0;
+      const masteryMultiplier = isSingularityMode
+        ? 2.0
+        : Math.max(fromMult, toMult);
+      const isOverdrive =
+        isSingularityMode ||
+        Boolean(fromMetrics?.isMastered || toMetrics?.isMastered);
+
       const pathSpeed =
         0.24 *
         flowSpeed *
-        (highlighted ? 1.55 : 1.0) *
-        (trainingMode && isTrainingPath ? 1.75 : 1.0);
+        masteryMultiplier *
+        (highlighted ? 1.45 : 1.0) *
+        (trainingMode && isTrainingPath ? 1.65 : 1.0);
 
       for (let k = 0; k < PARTICLES_PER_PATH; k++) {
         const currentProg =
@@ -145,7 +171,11 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         tempPos.y += Math.sin(currentProg * Math.PI) * 0.18;
 
         dummy.position.copy(tempPos);
-        const scaleBase = highlighted ? 0.18 : 0.13;
+        const scaleBase = isOverdrive
+          ? 0.2
+          : highlighted
+          ? 0.18
+          : 0.13 + (masteryMultiplier - 1) * 0.04;
         const pulse = 1 + Math.sin(currentProg * Math.PI) * 0.35;
         dummy.scale.setScalar(scaleBase * pulse);
         dummy.updateMatrix();
@@ -153,7 +183,13 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         instancedRef.current.setMatrixAt(instanceIdx, dummy.matrix);
         instancedRef.current.setColorAt(
           instanceIdx,
-          highlighted ? highlightColor : item.color
+          highlighted
+            ? highlightColor
+            : isSingularityMode
+            ? overdriveColor
+            : isOverdrive
+            ? highlightColor
+            : item.color
         );
         instanceIdx++;
       }
@@ -186,8 +222,16 @@ export const DataFlow: React.FC<DataFlowProps> = ({
       {/* Conduit Base Tracks & Glowing Pathways */}
       {curves.map((item) => {
         const highlighted = isPathHighlighted(item);
+        const isOverdrive =
+          isSingularityMode ||
+          Boolean(
+            allDistrictsMastery?.[item.from]?.isMastered ||
+              allDistrictsMastery?.[item.to]?.isMastered
+          );
         const dimmed =
-          (activeDistrict !== null || activeDemoPathIds.length > 0) && !highlighted;
+          (activeDistrict !== null || activeDemoPathIds.length > 0) &&
+          !highlighted &&
+          !isSingularityMode;
 
         return (
           <group key={item.id}>
@@ -195,17 +239,35 @@ export const DataFlow: React.FC<DataFlowProps> = ({
             <Line
               points={item.points}
               color={isNight ? '#1E3A6E' : '#94A3B8'}
-              lineWidth={highlighted ? 4.5 : 2.5}
+              lineWidth={highlighted || isOverdrive ? 4.5 : 2.5}
               transparent
-              opacity={dimmed ? 0.3 : 0.75}
+              opacity={dimmed ? 0.3 : 0.78}
             />
             {/* Glowing Data Core Conduit */}
             <Line
               points={item.points}
-              color={highlighted ? '#00F0FF' : item.hex}
-              lineWidth={highlighted ? 3.2 : 1.8}
+              color={
+                isSingularityMode
+                  ? '#00F0FF'
+                  : highlighted
+                  ? '#00F0FF'
+                  : item.hex
+              }
+              lineWidth={
+                isSingularityMode
+                  ? 3.6
+                  : highlighted || isOverdrive
+                  ? 3.2
+                  : 1.8
+              }
               transparent
-              opacity={dimmed ? 0.25 : highlighted ? 1.0 : 0.82}
+              opacity={
+                dimmed
+                  ? 0.25
+                  : isSingularityMode || highlighted || isOverdrive
+                  ? 1.0
+                  : 0.82
+              }
             />
           </group>
         );

@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Sparkles,
   Info,
+  Award,
 } from 'lucide-react';
 
 interface SystemStatusPanelProps {
@@ -17,6 +18,9 @@ interface SystemStatusPanelProps {
   trainingMode: boolean;
   isNight: boolean;
   reducedMotion: boolean;
+  masteryCompleted?: number;
+  masteryTotal?: number;
+  masteredDistrictsCount?: number;
 }
 
 export const HeroStatusHUD: React.FC<{
@@ -24,12 +28,36 @@ export const HeroStatusHUD: React.FC<{
   flowSpeed: number;
   trainingMode: boolean;
   isNight: boolean;
-}> = ({ isPaused, flowSpeed, trainingMode, isNight }) => {
-  const activeNodes = trainingMode ? '1,024 / 1,024' : '896 / 1,024';
+  masteryCompleted?: number;
+  masteryTotal?: number;
+}> = ({
+  isPaused,
+  flowSpeed,
+  trainingMode,
+  isNight,
+  masteryCompleted = 0,
+  masteryTotal = 32,
+}) => {
+  const masteryRatio = masteryTotal > 0 ? masteryCompleted / masteryTotal : 0;
+  const activeNodesNum = trainingMode
+    ? 1024
+    : Math.min(1024, 896 + Math.round(masteryRatio * 128));
+  const activeNodes = `${activeNodesNum.toLocaleString()} / 1,024`;
   const dataFlowRate = isPaused
     ? '0.0 GB/s (PAUSED)'
-    : `${(42.8 * flowSpeed * (trainingMode ? 1.35 : 1)).toFixed(1)} GB/s`;
-  const modelLoad = isPaused ? '12%' : trainingMode ? '96%' : '78%';
+    : `${(
+        42.8 *
+        flowSpeed *
+        (1 + masteryRatio * 0.45) *
+        (trainingMode ? 1.35 : 1)
+      ).toFixed(1)} GB/s`;
+  const modelLoad = isPaused
+    ? '12%'
+    : masteryRatio === 1
+    ? '100% (OVERDRIVE)'
+    : trainingMode
+    ? '96%'
+    : `${Math.min(99, 78 + Math.round(masteryRatio * 18))}%`;
 
   return (
     <div
@@ -131,33 +159,47 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
   trainingMode,
   isNight,
   reducedMotion,
+  masteryCompleted = 0,
+  masteryTotal = 32,
+  masteredDistrictsCount = 0,
 }) => {
   const [packetsProcessed, setPacketsProcessed] = useState(1482940);
   const [trainingProgress, setTrainingProgress] = useState(84.2);
   const [latencyMs, setLatencyMs] = useState(11.4);
+
+  const masteryRatio = masteryTotal > 0 ? masteryCompleted / masteryTotal : 0;
+  const isSingularity = masteryCompleted >= masteryTotal && masteryTotal > 0;
 
   useEffect(() => {
     if (isPaused || reducedMotion) return;
 
     const interval = setInterval(() => {
       setPacketsProcessed((prev) =>
-        prev + Math.round(145 * flowSpeed * (trainingMode ? 1.6 : 1))
+        prev +
+        Math.round(
+          145 *
+            flowSpeed *
+            (1 + masteryRatio * 0.6) *
+            (trainingMode ? 1.6 : 1)
+        )
       );
       setTrainingProgress((prev) => {
         const next = prev + (trainingMode ? 0.18 : 0.05) * flowSpeed;
         return next >= 99.9 ? 72.0 : Number(next.toFixed(2));
       });
       setLatencyMs(() => {
-        const base = trainingMode ? 12.8 : 11.2;
+        const base = trainingMode ? 12.8 : Math.max(5.8, 11.2 - masteryRatio * 3.8);
         const jitter = (Math.random() - 0.5) * 0.8;
         return Number((base + jitter).toFixed(1));
       });
     }, 900);
 
     return () => clearInterval(interval);
-  }, [isPaused, flowSpeed, trainingMode, reducedMotion]);
+  }, [isPaused, flowSpeed, trainingMode, reducedMotion, masteryRatio]);
 
-  const activeNodesCount = trainingMode ? 1024 : 896;
+  const activeNodesCount = trainingMode
+    ? 1024
+    : Math.min(1024, 896 + Math.round(masteryRatio * 128));
   const isStaticSnapshot = isPaused || reducedMotion;
 
   return (
@@ -222,8 +264,8 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
           </div>
         </div>
 
-        {/* 5 Telemetry Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* 6 Telemetry Cards (Including Architect Mastery Index) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {/* 1. Data Packets Processed */}
           <div
             className={`rounded-2xl border p-4 ${
@@ -423,23 +465,102 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
             </div>
             <div
               className={`mt-2 flex items-center gap-2 font-mono text-xl font-bold ${
-                isNight ? 'text-emerald-400' : 'text-emerald-700'
+                isSingularity
+                  ? isNight
+                    ? 'text-amber-300'
+                    : 'text-amber-700'
+                  : isNight
+                  ? 'text-emerald-400'
+                  : 'text-emerald-700'
               }`}
             >
               <span
                 aria-hidden="true"
                 className={`h-2.5 w-2.5 rounded-full ${
-                  isPaused ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'
+                  isPaused
+                    ? 'bg-amber-400'
+                    : isSingularity
+                    ? 'bg-amber-400 animate-ping'
+                    : 'bg-emerald-400 animate-pulse'
                 }`}
               />
-              {isPaused ? 'PAUSED' : trainingMode ? 'TRAINING BOOST' : 'OPTIMAL'}
+              {isPaused
+                ? 'PAUSED'
+                : isSingularity
+                ? 'SINGULARITY'
+                : trainingMode
+                ? 'TRAINING BOOST'
+                : 'OPTIMAL'}
             </div>
             <div
               className={`mt-3 font-mono text-[11px] ${
                 isNight ? 'text-slate-400' : 'text-slate-600'
               }`}
             >
-              Simulated Demo Telemetry
+              {isSingularity
+                ? 'All 8 Districts Overclocked (2.0x)'
+                : 'Simulated Demo Telemetry'}
+            </div>
+          </div>
+
+          {/* 6. Architect Mastery Index */}
+          <div
+            className={`rounded-2xl border p-4 transition-colors ${
+              isSingularity
+                ? isNight
+                  ? 'border-amber-400/70 bg-amber-950/20 shadow-lg shadow-amber-500/10'
+                  : 'border-amber-500 bg-amber-50'
+                : isNight
+                ? 'border-slate-800 bg-[#081126]/80'
+                : 'border-slate-200 bg-white'
+            }`}
+          >
+            <div
+              className={`flex items-center justify-between text-xs font-mono ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
+              <span>ARCHITECT MASTERY INDEX</span>
+              <Award
+                aria-hidden="true"
+                className={`h-3.5 w-3.5 ${
+                  isSingularity ? 'text-amber-400' : 'text-cyan-400'
+                }`}
+              />
+            </div>
+            <div
+              className={`mt-2 font-mono text-2xl font-bold ${
+                isSingularity
+                  ? isNight
+                    ? 'text-amber-300'
+                    : 'text-amber-700'
+                  : isNight
+                  ? 'text-cyan-400'
+                  : 'text-cyan-700'
+              }`}
+            >
+              {Math.round(masteryRatio * 100)}%
+            </div>
+            <div
+              className={`mt-3 h-2 w-full overflow-hidden rounded-full ${
+                isNight ? 'bg-slate-800' : 'bg-slate-200'
+              }`}
+            >
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  isSingularity
+                    ? 'bg-gradient-to-r from-amber-400 via-cyan-400 to-fuchsia-400'
+                    : 'bg-gradient-to-r from-cyan-400 to-violet-500'
+                }`}
+                style={{ width: `${Math.round(masteryRatio * 100)}%` }}
+              />
+            </div>
+            <div
+              className={`mt-2 font-mono text-[11px] ${
+                isNight ? 'text-slate-300' : 'text-slate-700'
+              }`}
+            >
+              {masteryCompleted}/{masteryTotal} Milestones · {masteredDistrictsCount}/8 Districts Overclocked
             </div>
           </div>
         </div>
