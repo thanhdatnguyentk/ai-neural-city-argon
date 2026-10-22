@@ -54,6 +54,16 @@ import {
   BATTLE_PRESETS,
   buildCustomStackBattlePreset,
 } from '../data/battle-presets.ts';
+import {
+  TYCOON_TECH_TREE,
+  TECH_NODE_MAP,
+  HARDWARE_CLUSTER_TIERS,
+} from '../data/tycoon-tech-tree.ts';
+import { TYCOON_BOSS_WAVES } from '../data/tycoon-waves.ts';
+import {
+  computeRoadmapRpMultiplier,
+  computeTycoonSystemMetrics,
+} from '../hooks/useTycoonGame.ts';
 
 describe('District Zero-to-Hero Roadmap & Landmarks Dataset', () => {
   it('maps all 8 existing Neural City DistrictIds with exact accent colors', () => {
@@ -429,5 +439,69 @@ describe('Phase 2: Interior Algorithmic Micro-Labs & A/B Architecture Battle Are
     );
   });
 });
+
+describe('Phase 3: AI Lab Tycoon, 24-Node Tech Tree & Boss Workload Defense Mode', () => {
+  it('defines 24 Tech Tree nodes (3 tiers per district), 4 Hardware Cluster tiers, and 5 Boss Waves', () => {
+    assert.equal(TYCOON_TECH_TREE.length, 24);
+    assert.equal(HARDWARE_CLUSTER_TIERS.length, 4);
+    assert.equal(TYCOON_BOSS_WAVES.length, 5);
+
+    for (let d = 1; d <= 8; d++) {
+      const dNodes = TYCOON_TECH_TREE.filter((n) => n.districtId === d);
+      assert.equal(dNodes.length, 3, `District ${d} must have 3 tech tiers`);
+    }
+
+    // Verify negative VRAM delta nodes (Quantization / PagedAttention / QLoRA / FlashAttention-2)
+    assert.ok(TECH_NODE_MAP['d3-tier-2'].vramDeltaGb < 0);
+    assert.ok(TECH_NODE_MAP['d4-tier-2'].vramDeltaGb < 0);
+    assert.ok(TECH_NODE_MAP['d5-tier-1'].vramDeltaGb < 0);
+    assert.ok(TECH_NODE_MAP['d5-tier-3'].vramDeltaGb < 0);
+
+    // Verify trilingual Tycoon labels
+    for (const lang of ['en', 'vi', 'ja'] as const) {
+      assert.ok(LOCALES[lang].tycoon.modeLabel.length > 0);
+      assert.ok(LOCALES[lang].tycoon.techTreeLabel.length > 0);
+      assert.ok(LOCALES[lang].tycoon.bottleneckCenterLabel.length > 0);
+    }
+  });
+
+  it('computes +5% RP multiplier per completed Roadmap milestone and accurate Wave 3 VRAM OOM & Wave 4 Guardrail defense', () => {
+    const bonus0 = computeRoadmapRpMultiplier(0);
+    assert.equal(bonus0.bonusPercent, 0);
+    assert.equal(bonus0.multiplier, 1.0);
+
+    const bonus4 = computeRoadmapRpMultiplier(4);
+    assert.equal(bonus4.bonusPercent, 20);
+    assert.equal(bonus4.multiplier, 1.2);
+
+    const bonus32 = computeRoadmapRpMultiplier(32);
+    assert.equal(bonus32.bonusPercent, 160);
+    assert.equal(bonus32.multiplier, 2.6);
+
+    // Wave 3 (88 GB base VRAM demand) on 80 GB GPU (tier 1) triggers OOM without VRAM compression nodes
+    const wave3Baseline = computeTycoonSystemMetrics({
+      unlockedNodeIds: [],
+      hardwareTierIndex: 1, // 80 GB
+      waveNumber: 3,
+      completedRoadmapMilestones: 8,
+    });
+    assert.equal(wave3Baseline.isVramOom, true);
+    assert.ok(wave3Baseline.primaryBottleneckDistrict.isPrimaryBottleneck);
+
+    // Researching ONNX INT8 (-10GB) + vLLM PagedAttention (-18GB) resolves Wave 3 OOM on 80 GB GPU
+    const wave3Optimized = computeTycoonSystemMetrics({
+      unlockedNodeIds: ['d5-tier-1', 'd5-tier-2', 'd5-tier-3'],
+      hardwareTierIndex: 1, // 80 GB
+      waveNumber: 3,
+      completedRoadmapMilestones: 8,
+    });
+    assert.equal(wave3Optimized.isVramOom, false);
+    assert.ok(wave3Optimized.usedVramGb <= 80);
+    assert.ok(
+      wave3Optimized.currentP99LatencyMs < wave3Baseline.currentP99LatencyMs
+    );
+  });
+});
+
 
 

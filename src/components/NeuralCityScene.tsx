@@ -20,6 +20,7 @@ import { District } from './District';
 import { DataFlow } from './DataFlow';
 import { IsometricCityFallback } from './IsometricCityFallback';
 import type { DistrictMasteryMetrics } from '@/hooks/useRoadmapProgress';
+import type { DistrictSaturationMetric } from '@/types/tycoon-strategy';
 import {
   WorkloadPresetId,
   BottleneckScenarioId,
@@ -50,6 +51,7 @@ export interface NeuralCitySceneProps {
   activeBottleneck?: BottleneckScenarioId;
   isBlueprintMode?: boolean;
   isBattleRaceActive?: boolean;
+  tycoonDistrictMetrics?: Record<DistrictId, DistrictSaturationMetric>;
   onSelectDistrict: (id: DistrictId | null) => void;
   onDoubleClickDistrict?: (id: DistrictId) => void;
   onHoverDistrict: (id: DistrictId | null) => void;
@@ -297,6 +299,7 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
     activeBottleneck = 'none',
     isBlueprintMode = false,
     isBattleRaceActive = false,
+    tycoonDistrictMetrics,
     onSelectDistrict,
     onDoubleClickDistrict,
     onHoverDistrict,
@@ -532,8 +535,13 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
               (district.id === highlightedFlowDistrict ||
                 district.connectsTo.includes(highlightedFlowDistrict) ||
                 district.receivesFrom.includes(highlightedFlowDistrict));
+            const tycoonMetric = tycoonDistrictMetrics?.[district.id];
             const isBottleneckTarget =
-              bottleneckSpec.targetDistrictId === district.id;
+              bottleneckSpec.targetDistrictId === district.id ||
+              Boolean(
+                tycoonMetric?.isPrimaryBottleneck &&
+                  tycoonMetric.saturationPercent > 100
+              );
             const isAdversarialShieldActive =
               district.id === 'computer-vision' &&
               (activeWorkload === 'adversarial-injection' ||
@@ -559,6 +567,7 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
                 isBlueprintMode={isBlueprintMode}
                 isBottleneckTarget={isBottleneckTarget}
                 isAdversarialShieldActive={isAdversarialShieldActive}
+                tycoonMetric={tycoonMetric}
                 onSelect={(id) => onSelectDistrict(id)}
                 onDoubleClick={onDoubleClickDistrict}
                 onHover={onHoverDistrict}

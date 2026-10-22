@@ -6,6 +6,7 @@ import { Html, RoundedBox, Edges } from '@react-three/drei';
 import * as THREE from 'three';
 import { DistrictData, DistrictId } from '@/data/districts';
 import type { DistrictMasteryMetrics } from '@/hooks/useRoadmapProgress';
+import type { DistrictSaturationMetric } from '@/types/tycoon-strategy';
 import { DistrictProgressRing } from './DistrictProgressRing';
 import { MasteryBeacon } from './MasteryBeacon';
 import { MasteryShockwave } from './MasteryShockwave';
@@ -28,6 +29,7 @@ interface DistrictProps {
   isBlueprintMode?: boolean;
   isBottleneckTarget?: boolean;
   isAdversarialShieldActive?: boolean;
+  tycoonMetric?: DistrictSaturationMetric;
   onSelect: (id: DistrictId) => void;
   onDoubleClick?: (id: DistrictId) => void;
   onHover: (id: DistrictId | null) => void;
@@ -51,6 +53,7 @@ export const District: React.FC<DistrictProps> = ({
   isBlueprintMode = false,
   isBottleneckTarget = false,
   isAdversarialShieldActive = false,
+  tycoonMetric,
   onSelect,
   onDoubleClick,
   onHover,
@@ -968,7 +971,18 @@ export const District: React.FC<DistrictProps> = ({
                 <span className="font-mono text-[10px] font-bold tracking-wider uppercase whitespace-nowrap">
                   {district.name}
                 </span>
-                {isBottleneckTarget && (
+                {tycoonMetric && tycoonMetric.unlockedTier > 0 && (
+                  <span className="ml-0.5 inline-flex items-center rounded-full border border-cyan-400/80 bg-cyan-500/25 px-1.5 py-0.2 font-mono text-[8px] font-bold tracking-wider text-cyan-200 whitespace-nowrap">
+                    [T{tycoonMetric.unlockedTier}
+                    {tycoonMetric.unlockedTier === 3 ? ' ★' : ''}]
+                  </span>
+                )}
+                {tycoonMetric?.isPrimaryBottleneck && (
+                  <span className="ml-0.5 inline-flex items-center rounded-full border border-amber-400 bg-rose-600/95 px-1.5 py-0.2 font-mono text-[8px] font-bold tracking-wider text-white animate-pulse whitespace-nowrap">
+                    ⚠️ BOTTLENECK: {tycoonMetric.saturationPercent}% LOAD
+                  </span>
+                )}
+                {isBottleneckTarget && !tycoonMetric?.isPrimaryBottleneck && (
                   <span className="ml-0.5 inline-flex items-center rounded-full border border-rose-400 bg-rose-600/90 px-1.5 py-0.2 font-mono text-[8px] font-bold tracking-wider text-white animate-pulse whitespace-nowrap">
                     ⚠ BOTTLENECK
                   </span>

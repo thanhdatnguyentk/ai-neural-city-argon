@@ -20,6 +20,8 @@ import {
   Code2,
   Swords,
   Microscope,
+  Gamepad2,
+  Trophy,
 } from 'lucide-react';
 import {
   DISTRICTS,
@@ -63,10 +65,13 @@ import { ArchitectAgentDock } from '@/components/ArchitectAgentDock';
 import { CaseStudiesModal } from '@/components/CaseStudiesModal';
 import { DistrictMicroLabModal } from '@/components/micro-labs/DistrictMicroLabModal';
 import { ArchitectureBattleModal } from '@/components/ArchitectureBattleModal';
+import { TycoonCommandHUD } from '@/components/tycoon/TycoonCommandHUD';
+import { TechTreeModal } from '@/components/tycoon/TechTreeModal';
 import { SceneControls } from '@/components/SceneControls';
 import { PipelineTimeline } from '@/components/PipelineTimeline';
 import { SystemStatusPanel, HeroStatusHUD } from '@/components/SystemStatusPanel';
 import { useRoadmapProgress } from '@/hooks/useRoadmapProgress';
+import { useTycoonGame } from '@/hooks/useTycoonGame';
 
 const NeuralCityScene = dynamic(
   () => import('@/components/NeuralCityScene').then((mod) => mod.NeuralCityScene),
@@ -157,6 +162,33 @@ function NeuralCitySandboxApp() {
   const masteredDistrictsCount = Object.values(allDistrictsMastery).filter(
     (m) => m.isMastered
   ).length;
+
+  // Phase 3: AI Lab Tycoon, Tech Tree & Boss Workload Defense Engine
+  const {
+    isTycoonActive,
+    setIsTycoonActive,
+    isTechTreeOpen,
+    setIsTechTreeOpen,
+    speedMode: tycoonSpeedMode,
+    setSpeedMode: setTycoonSpeedMode,
+    credits: tycoonCredits,
+    rp: tycoonRp,
+    slaStability: tycoonSlaStability,
+    hardwareTierIndex: tycoonHardwareTierIndex,
+    currentHardware: tycoonCurrentHardware,
+    nextHardware: tycoonNextHardware,
+    unlockedNodeIds: tycoonUnlockedNodeIds,
+    currentWave: tycoonCurrentWave,
+    waveElapsedSec: tycoonWaveElapsedSec,
+    campaignStatus: tycoonCampaignStatus,
+    saveData: tycoonSaveData,
+    telemetry: tycoonTelemetry,
+    canResearchNode: canResearchTycoonNode,
+    researchTechNode: researchTycoonNode,
+    upgradeHardwareCluster: upgradeTycoonHardware,
+    callNextWaveEarly: callNextTycoonWaveEarly,
+    resetCampaign: resetTycoonCampaign,
+  } = useTycoonGame(cityMastery.completed);
 
   // Camera state adjustments
   const [cameraZoomDelta, setCameraZoomDelta] = useState<number>(0);
@@ -466,7 +498,9 @@ function NeuralCitySandboxApp() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         triggerKeyFlash('Esc');
-        if (isMicroLabOpen) {
+        if (isTechTreeOpen) {
+          setIsTechTreeOpen(false);
+        } else if (isMicroLabOpen) {
           setIsMicroLabOpen(false);
           setCameraZoomDelta(0);
         } else if (isBattleModalOpen) {
@@ -500,6 +534,13 @@ function NeuralCitySandboxApp() {
       } else if (e.key === 'b' || e.key === 'B') {
         triggerKeyFlash('B');
         toggleBlueprintMode();
+      } else if (e.key === 'g' || e.key === 'G') {
+        triggerKeyFlash('G');
+        setIsTycoonActive((active) => !active);
+      } else if (e.key === 't' || e.key === 'T') {
+        triggerKeyFlash('T');
+        setIsTycoonActive(true);
+        setIsTechTreeOpen((open) => !open);
       } else if (e.key === 'l' || e.key === 'L') {
         triggerKeyFlash('L');
         if (isMicroLabOpen) {
@@ -543,11 +584,14 @@ function NeuralCitySandboxApp() {
     exitTour,
     isMicroLabOpen,
     isBattleModalOpen,
+    isTechTreeOpen,
     isStackBuilderOpen,
     isCaseStudiesOpen,
     isTourRunning,
     isDrawerOpen,
     selectedDistrict,
+    setIsTycoonActive,
+    setIsTechTreeOpen,
   ]);
 
   const activeDemoStep =
@@ -559,8 +603,9 @@ function NeuralCitySandboxApp() {
     ? DISTRICT_MAP[hoveredDistrict]
     : null;
 
-  // Step 1 Guardrail: Prevent HUD overlap when DistrictDeepDiveDrawer or Tour is open
-  const isLeftHeroCollapsed = heroMinimized || isDrawerOpen || isTourRunning;
+  // Step 1 Guardrail: Prevent HUD overlap when DistrictDeepDiveDrawer, Tour, or Tycoon Mode is open
+  const isLeftHeroCollapsed =
+    heroMinimized || isDrawerOpen || isTourRunning || isTycoonActive;
 
   return (
     <div
@@ -706,6 +751,35 @@ function NeuralCitySandboxApp() {
               <span>🔬 {t.header.btnEnterLab}</span>
             </button>
 
+            {/* Phase 3: Tycoon Strategy Mode Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsTycoonActive((a) => !a)}
+              aria-pressed={isTycoonActive}
+              title="Toggle AI Lab Tycoon, Tech Tree & Boss Workload Defense Mode [G]"
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 font-mono text-[11px] font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
+                activeKeyFlash === 'G' ? 'ring-2 ring-amber-400 scale-105' : ''
+              } ${
+                isTycoonActive
+                  ? 'border-amber-400 bg-amber-400 text-slate-950 shadow-md shadow-amber-500/25'
+                  : 'border-amber-400/60 bg-amber-500/15 text-amber-300 hover:bg-amber-400 hover:text-slate-950'
+              }`}
+            >
+              <Gamepad2 aria-hidden="true" className="h-3.5 w-3.5" />
+              <span>🎮 {t.header.btnTycoonMode} [G]</span>
+            </button>
+
+            {/* Persistent Golden Chief AI Architect Campaign Victory Badge */}
+            {tycoonSaveData.wave5Cleared && (
+              <span
+                title="Grand Architect Campaign Cleared (Survived Wave 5 Singularity Event)"
+                className="hidden xl:inline-flex items-center gap-1.5 rounded-xl border border-amber-400 bg-amber-500/20 px-2.5 py-1 font-mono text-[10px] font-bold text-amber-200 shadow-lg shadow-amber-500/20"
+              >
+                <Trophy aria-hidden="true" className="h-3.5 w-3.5 text-amber-400" />
+                <span>🏆 Chief AI Architect — Wave 5 Cleared</span>
+              </span>
+            )}
+
             {/* Blueprint / X-Ray Quick Toggle in Header */}
             <button
               type="button"
@@ -799,8 +873,18 @@ function NeuralCitySandboxApp() {
               highlightedFlowDistrict={highlightedFlowDistrict}
               activeDemoPathIds={activeDemoStep ? activeDemoStep.activePathIds : []}
               showLabels={showLabels}
-              isPaused={isPaused || isMicroLabOpen}
-              flowSpeed={flowSpeed}
+              isPaused={
+                isPaused ||
+                isMicroLabOpen ||
+                (isTycoonActive && tycoonSpeedMode === 0)
+              }
+              flowSpeed={
+                isTycoonActive
+                  ? flowSpeed *
+                    (tycoonSpeedMode === 2 ? 1.65 : 1.0) *
+                    Math.min(2.4, 1 + tycoonUnlockedNodeIds.length * 0.06)
+                  : flowSpeed
+              }
               trainingMode={
                 trainingMode || activeWorkload === 'distributed-training'
               }
@@ -818,6 +902,9 @@ function NeuralCitySandboxApp() {
               activeBottleneck={activeBottleneck}
               isBlueprintMode={isBlueprintMode}
               isBattleRaceActive={isBattleRaceActive}
+              tycoonDistrictMetrics={
+                isTycoonActive ? tycoonTelemetry.districtMetrics : undefined
+              }
               onSelectDistrict={handleSelectDistrict}
               onDoubleClickDistrict={handleOpenMicroLab}
               onHoverDistrict={setHoveredDistrict}
@@ -826,8 +913,40 @@ function NeuralCitySandboxApp() {
 
           {/* Foreground HUD Layer */}
           <div className="pointer-events-none relative z-20 mx-auto flex h-full max-w-[1600px] flex-col justify-between p-4 sm:p-6">
-            {/* TOP ROW: Compact Hero Overlay Card (Left) + District Detail Panel (Right) */}
-            <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
+            <div>
+              {/* Phase 3: Top Tactical Tycoon Resource & Boss Wave Command Bar */}
+              <TycoonCommandHUD
+                isActive={isTycoonActive}
+                isNight={isNight}
+                speedMode={tycoonSpeedMode}
+                credits={tycoonCredits}
+                rp={tycoonRp}
+                slaStability={tycoonSlaStability}
+                currentHardware={tycoonCurrentHardware}
+                nextHardware={tycoonNextHardware}
+                unlockedNodeIds={tycoonUnlockedNodeIds}
+                currentWave={tycoonCurrentWave}
+                waveElapsedSec={tycoonWaveElapsedSec}
+                campaignStatus={tycoonCampaignStatus}
+                saveData={tycoonSaveData}
+                telemetry={tycoonTelemetry}
+                selectedDistrict={selectedDistrict}
+                canResearchNode={canResearchTycoonNode}
+                onResearchNode={researchTycoonNode}
+                onUpgradeHardware={upgradeTycoonHardware}
+                onSetSpeedMode={setTycoonSpeedMode}
+                onCallNextWaveEarly={callNextTycoonWaveEarly}
+                onOpenTechTree={() => setIsTechTreeOpen(true)}
+                onFocusDistrict={(id) => {
+                  setSelectedDistrict(id);
+                  setActivePipelineStage(DISTRICT_MAP[id].pipelineStage);
+                }}
+                onResetCampaign={resetTycoonCampaign}
+                onCloseTycoonMode={() => setIsTycoonActive(false)}
+              />
+
+              {/* TOP ROW: Compact Hero Overlay Card (Left) + District Detail Panel (Right) */}
+              <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
               {/* Left Column: Compact Hero Panel, Packet Tracer, Chaos Simulator, AI Architect Dock & Live Telemetry */}
               <div
                 className={`flex flex-col gap-2.5 w-full transition-all duration-300 ${
@@ -1228,6 +1347,7 @@ function NeuralCitySandboxApp() {
                 )}
               </div>
             </div>
+            </div>
 
             {/* BOTTOM ROW: Quick District Selector Bar + Scene Controls Toolbar */}
             <div className="flex flex-col gap-2 items-center justify-end w-full">
@@ -1449,6 +1569,21 @@ function NeuralCitySandboxApp() {
         }}
       />
 
+      {/* ==================== PHASE 3 MODAL: 24-NODE TECH TREE ==================== */}
+      <TechTreeModal
+        isOpen={isTechTreeOpen}
+        isNight={isNight}
+        credits={tycoonCredits}
+        rp={tycoonRp}
+        hardwareTierIndex={tycoonHardwareTierIndex}
+        unlockedNodeIds={tycoonUnlockedNodeIds}
+        telemetry={tycoonTelemetry}
+        canResearchNode={canResearchTycoonNode}
+        onResearchNode={researchTycoonNode}
+        onUpgradeHardware={upgradeTycoonHardware}
+        onClose={() => setIsTechTreeOpen(false)}
+      />
+
       {/* ==================== FOOTER ==================== */}
       <footer
         className={`border-t py-8 px-4 sm:px-6 lg:px-10 font-mono text-xs transition-colors ${
@@ -1478,6 +1613,15 @@ function NeuralCitySandboxApp() {
               }`}
             >
               Shortcuts: [1–8] Select District
+            </span>
+            <span
+              className={`rounded px-1.5 py-0.5 transition-all ${
+                activeKeyFlash === 'G' || activeKeyFlash === 'T'
+                  ? 'ring-2 ring-amber-400 scale-105 bg-amber-500/20 text-amber-300'
+                  : ''
+              }`}
+            >
+              [G] Tycoon Mode · [T] Tech Tree
             </span>
             <span
               className={`rounded px-1.5 py-0.5 transition-all ${

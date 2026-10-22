@@ -34,8 +34,18 @@ export interface LocaleDictionary {
     btnAskArchitect: string;
     btnEnterLab: string;
     btnBattleArena: string;
+    btnTycoonMode: string;
     motionReduced: string;
     motionStandard: string;
+  };
+  tycoon: {
+    modeLabel: string;
+    techTreeLabel: string;
+    computeCreditsLabel: string;
+    researchPointsLabel: string;
+    clusterVramLabel: string;
+    slaStabilityLabel: string;
+    bottleneckCenterLabel: string;
   };
   hero: {
     badge: string;
@@ -106,8 +116,18 @@ export const LOCALES: Record<LanguageCode, LocaleDictionary> = {
       btnAskArchitect: 'Ask AI City Architect',
       btnEnterLab: 'Enter District Lab',
       btnBattleArena: 'A/B Architecture Battle',
+      btnTycoonMode: 'Tycoon Strategy Mode',
       motionReduced: 'Reduced Motion: ON',
       motionStandard: 'Motion: Standard',
+    },
+    tycoon: {
+      modeLabel: 'Tycoon Strategy Mode',
+      techTreeLabel: 'Tech Tree',
+      computeCreditsLabel: 'Compute Credits',
+      researchPointsLabel: 'Research Points',
+      clusterVramLabel: 'Cluster VRAM',
+      slaStabilityLabel: 'SLA Stability',
+      bottleneckCenterLabel: 'Center of Gravity Bottleneck',
     },
     hero: {
       badge: 'AI ARCHITECTURE DESIGN STUDIO',
@@ -262,8 +282,18 @@ export const LOCALES: Record<LanguageCode, LocaleDictionary> = {
       btnAskArchitect: 'Hỏi Kiến Trúc Sư AI',
       btnEnterLab: 'Vào Phòng Thí Nghiệm Quận',
       btnBattleArena: 'Đấu Trường Kiến Trúc A/B',
+      btnTycoonMode: 'Chế Độ Chiến Thuật Tycoon',
       motionReduced: 'Giảm Chuyển Động: BẬT',
       motionStandard: 'Chuyển Động: Chuẩn',
+    },
+    tycoon: {
+      modeLabel: 'Chế Độ Chiến Thuật Tycoon',
+      techTreeLabel: 'Cây Công Nghệ',
+      computeCreditsLabel: 'Tín Dụng Tính Toán',
+      researchPointsLabel: 'Điểm Nghiên Cứu (RP)',
+      clusterVramLabel: 'Dung Lượng VRAM Cụm',
+      slaStabilityLabel: 'Độ Ổn Định SLA',
+      bottleneckCenterLabel: 'Điểm Nghẽn Trọng Tâm',
     },
     hero: {
       badge: 'STUDIO KIẾN TRÚC HỆ THỐNG AI',
@@ -418,8 +448,18 @@ export const LOCALES: Record<LanguageCode, LocaleDictionary> = {
       btnAskArchitect: 'AIアーキテクトに質問',
       btnEnterLab: 'ディストリクト・ラボに入る',
       btnBattleArena: 'A/B アーキテクチャ対決',
+      btnTycoonMode: 'AIラボ戦略モード (Tycoon)',
       motionReduced: '視差効果: 最小',
       motionStandard: 'アニメーション: 標準',
+    },
+    tycoon: {
+      modeLabel: 'AIラボ戦略モード (Tycoon)',
+      techTreeLabel: '技術ツリー (Tech Tree)',
+      computeCreditsLabel: '計算クレジット',
+      researchPointsLabel: '研究ポイント (RP)',
+      clusterVramLabel: 'クラスタ VRAM',
+      slaStabilityLabel: 'SLA 安定度',
+      bottleneckCenterLabel: 'ボトルネック重心',
     },
     hero: {
       badge: 'AIシステム設計・検証サンドボックス',
