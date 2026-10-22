@@ -18,6 +18,8 @@ import {
   Flame,
   BookOpen,
   Code2,
+  Swords,
+  Microscope,
 } from 'lucide-react';
 import {
   DISTRICTS,
@@ -59,6 +61,8 @@ import {
 import { StackBuilderModal } from '@/components/StackBuilderModal';
 import { ArchitectAgentDock } from '@/components/ArchitectAgentDock';
 import { CaseStudiesModal } from '@/components/CaseStudiesModal';
+import { DistrictMicroLabModal } from '@/components/micro-labs/DistrictMicroLabModal';
+import { ArchitectureBattleModal } from '@/components/ArchitectureBattleModal';
 import { SceneControls } from '@/components/SceneControls';
 import { PipelineTimeline } from '@/components/PipelineTimeline';
 import { SystemStatusPanel, HeroStatusHUD } from '@/components/SystemStatusPanel';
@@ -117,6 +121,11 @@ function NeuralCitySandboxApp() {
   const [isStackBuilderOpen, setIsStackBuilderOpen] = useState<boolean>(false);
   const [isCaseStudiesOpen, setIsCaseStudiesOpen] = useState<boolean>(false);
   const [activeCaseStudyId, setActiveCaseStudyId] = useState<string | null>(null);
+
+  // Phase 2 State: Interior Algorithmic Micro-Lab & A/B Architecture Battle Arena
+  const [isMicroLabOpen, setIsMicroLabOpen] = useState<boolean>(false);
+  const [isBattleModalOpen, setIsBattleModalOpen] = useState<boolean>(false);
+  const [isBattleRaceActive, setIsBattleRaceActive] = useState<boolean>(false);
 
   const {
     activeWorkload,
@@ -441,12 +450,29 @@ function NeuralCitySandboxApp() {
     [reducedMotion]
   );
 
-  // Keyboard navigation shortcuts ([1-8] for districts, [B] for Blueprint Mode, [R] to reset, [Esc] to close)
+  const handleOpenMicroLab = useCallback(
+    (districtId: DistrictId) => {
+      setSelectedDistrict(districtId);
+      setActivePipelineStage(DISTRICT_MAP[districtId].pipelineStage);
+      setCameraZoomDelta(3);
+      setHeroMinimized(true);
+      setIsMicroLabOpen(true);
+    },
+    []
+  );
+
+  // Keyboard navigation shortcuts ([1-8] for districts, [L] for Micro-Lab, [V] for A/B Battle Arena, [B] for Blueprint Mode, [R] to reset, [Esc] to close)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         triggerKeyFlash('Esc');
-        if (isStackBuilderOpen) {
+        if (isMicroLabOpen) {
+          setIsMicroLabOpen(false);
+          setCameraZoomDelta(0);
+        } else if (isBattleModalOpen) {
+          setIsBattleModalOpen(false);
+          setIsBattleRaceActive(false);
+        } else if (isStackBuilderOpen) {
           setIsStackBuilderOpen(false);
         } else if (isCaseStudiesOpen) {
           setIsCaseStudiesOpen(false);
@@ -474,13 +500,27 @@ function NeuralCitySandboxApp() {
       } else if (e.key === 'b' || e.key === 'B') {
         triggerKeyFlash('B');
         toggleBlueprintMode();
+      } else if (e.key === 'l' || e.key === 'L') {
+        triggerKeyFlash('L');
+        if (isMicroLabOpen) {
+          setIsMicroLabOpen(false);
+          setCameraZoomDelta(0);
+        } else {
+          handleOpenMicroLab(selectedDistrict || 'input-gateway');
+        }
+      } else if (e.key === 'v' || e.key === 'V') {
+        triggerKeyFlash('V');
+        setIsBattleModalOpen((open) => {
+          if (open) setIsBattleRaceActive(false);
+          return !open;
+        });
       } else if (e.key === 'Enter' && selectedDistrict && !isDrawerOpen) {
         setIsDrawerOpen(true);
-      } else if (e.key === 'ArrowLeft' && selectedDistrict && isDrawerOpen) {
+      } else if (e.key === 'ArrowLeft' && selectedDistrict && (isDrawerOpen || isMicroLabOpen)) {
         const idx = DISTRICTS.findIndex((d) => d.id === selectedDistrict);
         const prev = DISTRICTS[(idx - 1 + DISTRICTS.length) % DISTRICTS.length];
         if (prev) handleSelectDistrict(prev.id);
-      } else if (e.key === 'ArrowRight' && selectedDistrict && isDrawerOpen) {
+      } else if (e.key === 'ArrowRight' && selectedDistrict && (isDrawerOpen || isMicroLabOpen)) {
         const idx = DISTRICTS.findIndex((d) => d.id === selectedDistrict);
         const next = DISTRICTS[(idx + 1) % DISTRICTS.length];
         if (next) handleSelectDistrict(next.id);
@@ -497,9 +537,12 @@ function NeuralCitySandboxApp() {
   }, [
     handleSelectDistrict,
     handleResetCamera,
+    handleOpenMicroLab,
     toggleBlueprintMode,
     triggerKeyFlash,
     exitTour,
+    isMicroLabOpen,
+    isBattleModalOpen,
     isStackBuilderOpen,
     isCaseStudiesOpen,
     isTourRunning,
@@ -637,6 +680,32 @@ function NeuralCitySandboxApp() {
               <span>📐 {t.header.btnCaseStudies}</span>
             </button>
 
+            {/* Phase 2 Module 2: A/B Architecture Battle Arena Button */}
+            <button
+              type="button"
+              onClick={() => setIsBattleModalOpen(true)}
+              title="Open A/B Architecture Battle Arena [V]"
+              className={`inline-flex items-center gap-1.5 rounded-xl border border-violet-400/60 bg-violet-500/15 px-2.5 py-1.5 font-mono text-[11px] font-bold text-violet-300 hover:bg-violet-400 hover:text-slate-950 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 ${
+                activeKeyFlash === 'V' ? 'ring-2 ring-cyan-400 scale-105' : ''
+              }`}
+            >
+              <Swords aria-hidden="true" className="h-3.5 w-3.5" />
+              <span>⚔️ {t.header.btnBattleArena}</span>
+            </button>
+
+            {/* Phase 2 Module 1: Enter District Micro-Lab Quick Button */}
+            <button
+              type="button"
+              onClick={() => handleOpenMicroLab(selectedDistrict || 'input-gateway')}
+              title="Enter District Algorithmic Micro-Lab [L]"
+              className={`hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/60 bg-emerald-500/15 px-2.5 py-1.5 font-mono text-[11px] font-bold text-emerald-300 hover:bg-emerald-400 hover:text-slate-950 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                activeKeyFlash === 'L' ? 'ring-2 ring-cyan-400 scale-105' : ''
+              }`}
+            >
+              <Microscope aria-hidden="true" className="h-3.5 w-3.5" />
+              <span>🔬 {t.header.btnEnterLab}</span>
+            </button>
+
             {/* Blueprint / X-Ray Quick Toggle in Header */}
             <button
               type="button"
@@ -730,7 +799,7 @@ function NeuralCitySandboxApp() {
               highlightedFlowDistrict={highlightedFlowDistrict}
               activeDemoPathIds={activeDemoStep ? activeDemoStep.activePathIds : []}
               showLabels={showLabels}
-              isPaused={isPaused}
+              isPaused={isPaused || isMicroLabOpen}
               flowSpeed={flowSpeed}
               trainingMode={
                 trainingMode || activeWorkload === 'distributed-training'
@@ -748,7 +817,9 @@ function NeuralCitySandboxApp() {
               activeWorkload={activeWorkload}
               activeBottleneck={activeBottleneck}
               isBlueprintMode={isBlueprintMode}
+              isBattleRaceActive={isBattleRaceActive}
               onSelectDistrict={handleSelectDistrict}
+              onDoubleClickDistrict={handleOpenMicroLab}
               onHoverDistrict={setHoveredDistrict}
             />
           </div>
@@ -1109,6 +1180,7 @@ function NeuralCitySandboxApp() {
                     onToggleDataFlow={handleToggleDataFlow}
                     onOpenStackBuilder={() => setIsStackBuilderOpen(true)}
                     onOpenCaseStudies={() => setIsCaseStudiesOpen(true)}
+                    onOpenMicroLab={handleOpenMicroLab}
                   />
                 ) : activeDistrictObj ? (
                   <DistrictInfoPanel
@@ -1351,6 +1423,32 @@ function NeuralCitySandboxApp() {
         onClose={() => setIsCaseStudiesOpen(false)}
       />
 
+      {/* ==================== PHASE 2 MODALS: MICRO-LABS & BATTLE ARENA ==================== */}
+      <DistrictMicroLabModal
+        districtId={selectedDistrict || 'input-gateway'}
+        isOpen={isMicroLabOpen}
+        isNight={isNight}
+        onSelectDistrict={(id) => {
+          setSelectedDistrict(id);
+          setActivePipelineStage(DISTRICT_MAP[id].pipelineStage);
+        }}
+        onClose={() => {
+          setIsMicroLabOpen(false);
+          setCameraZoomDelta(0);
+        }}
+      />
+
+      <ArchitectureBattleModal
+        isOpen={isBattleModalOpen}
+        isNight={isNight}
+        customStackSelections={stackSelections}
+        onBattleRaceStateChange={setIsBattleRaceActive}
+        onClose={() => {
+          setIsBattleModalOpen(false);
+          setIsBattleRaceActive(false);
+        }}
+      />
+
       {/* ==================== FOOTER ==================== */}
       <footer
         className={`border-t py-8 px-4 sm:px-6 lg:px-10 font-mono text-xs transition-colors ${
@@ -1380,6 +1478,24 @@ function NeuralCitySandboxApp() {
               }`}
             >
               Shortcuts: [1–8] Select District
+            </span>
+            <span
+              className={`rounded px-1.5 py-0.5 transition-all ${
+                activeKeyFlash === 'L'
+                  ? 'ring-2 ring-cyan-400 scale-105 bg-cyan-500/20 text-cyan-300'
+                  : ''
+              }`}
+            >
+              [L] District Micro-Lab
+            </span>
+            <span
+              className={`rounded px-1.5 py-0.5 transition-all ${
+                activeKeyFlash === 'V'
+                  ? 'ring-2 ring-cyan-400 scale-105 bg-cyan-500/20 text-cyan-300'
+                  : ''
+              }`}
+            >
+              [V] A/B Battle Arena
             </span>
             <span
               className={`rounded px-1.5 py-0.5 transition-all ${

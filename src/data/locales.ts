@@ -32,6 +32,8 @@ export interface LocaleDictionary {
     btnBlueprint: string;
     btnRoadmap: string;
     btnAskArchitect: string;
+    btnEnterLab: string;
+    btnBattleArena: string;
     motionReduced: string;
     motionStandard: string;
   };
@@ -102,6 +104,8 @@ export const LOCALES: Record<LanguageCode, LocaleDictionary> = {
       btnBlueprint: 'Blueprint [B]',
       btnRoadmap: 'Roadmap',
       btnAskArchitect: 'Ask AI City Architect',
+      btnEnterLab: 'Enter District Lab',
+      btnBattleArena: 'A/B Architecture Battle',
       motionReduced: 'Reduced Motion: ON',
       motionStandard: 'Motion: Standard',
     },
@@ -256,6 +260,8 @@ export const LOCALES: Record<LanguageCode, LocaleDictionary> = {
       btnBlueprint: 'Bản Vẽ [B]',
       btnRoadmap: 'Lộ Trình',
       btnAskArchitect: 'Hỏi Kiến Trúc Sư AI',
+      btnEnterLab: 'Vào Phòng Thí Nghiệm Quận',
+      btnBattleArena: 'Đấu Trường Kiến Trúc A/B',
       motionReduced: 'Giảm Chuyển Động: BẬT',
       motionStandard: 'Chuyển Động: Chuẩn',
     },
@@ -410,6 +416,8 @@ export const LOCALES: Record<LanguageCode, LocaleDictionary> = {
       btnBlueprint: '設計図 [B]',
       btnRoadmap: 'ロードマップ',
       btnAskArchitect: 'AIアーキテクトに質問',
+      btnEnterLab: 'ディストリクト・ラボに入る',
+      btnBattleArena: 'A/B アーキテクチャ対決',
       motionReduced: '視差効果: 最小',
       motionStandard: 'アニメーション: 標準',
     },

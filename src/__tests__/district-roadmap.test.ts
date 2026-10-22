@@ -41,6 +41,19 @@ import {
   synthesizeArchitectPlanFromPrompt,
   buildTourFromCaseStudy,
 } from '../hooks/useArchitectTour.ts';
+import {
+  MICRO_LAB_METADATA,
+  tokenizeTextSample,
+  computeVectorSearchMetrics,
+  computeZeroGpuMemoryBreakdown,
+  computeMoeRoutingStats,
+  computeKvBlockAllocation,
+  computeRagasFaithfulness,
+} from '../types/micro-labs.ts';
+import {
+  BATTLE_PRESETS,
+  buildCustomStackBattlePreset,
+} from '../data/battle-presets.ts';
 
 describe('District Zero-to-Hero Roadmap & Landmarks Dataset', () => {
   it('maps all 8 existing Neural City DistrictIds with exact accent colors', () => {
@@ -343,4 +356,78 @@ describe('Phase 1 Ecosystem: Trilingual i18n, Stack Builder, Architect Agent & C
     }
   });
 });
+
+describe('Phase 2: Interior Algorithmic Micro-Labs & A/B Architecture Battle Arena', () => {
+  it('provides trilingual micro-lab metadata for all 8 districts', () => {
+    for (const d of DISTRICTS) {
+      const meta = MICRO_LAB_METADATA[d.id];
+      assert.ok(meta, `Missing micro-lab metadata for ${d.id}`);
+      assert.ok(meta.labTitle.en.length > 0);
+      assert.ok(meta.labTitle.vi.length > 0);
+      assert.ok(meta.labTitle.ja.length > 0);
+    }
+  });
+
+  it('computes deterministic algorithmic metrics across all micro-lab engines', () => {
+    const tokenRes = tokenizeTextSample('Hello AI Neural City!', 'bpe');
+    assert.ok(tokenRes.tokens.length >= 3);
+    assert.ok(tokenRes.tokenCount >= 3);
+
+    const bfSearch = computeVectorSearchMetrics('brute-force', 64);
+    const hnswSearch = computeVectorSearchMetrics('hnsw', 64);
+    assert.ok(hnswSearch.hops < bfSearch.hops);
+    assert.ok(hnswSearch.latencyMs < bfSearch.latencyMs);
+
+    const ddpMem = computeZeroGpuMemoryBreakdown('ddp');
+    const zero3Mem = computeZeroGpuMemoryBreakdown('zero-3');
+    const qloraMem = computeZeroGpuMemoryBreakdown('qlora');
+    assert.equal(ddpMem.isOomOn80Gb, true);
+    assert.ok(zero3Mem.totalPerGpuGb < ddpMem.totalPerGpuGb);
+    assert.equal(qloraMem.isOomOn80Gb, false);
+
+    const moeStats = computeMoeRoutingStats('code', 'sparse-top2');
+    assert.equal(moeStats.experts.length, 8);
+    assert.ok(moeStats.flopsSavedPercent > 50);
+
+    const contiguousKv = computeKvBlockAllocation('contiguous', 4, false);
+    const pagedKv = computeKvBlockAllocation('paged-attention', 4, true);
+    assert.equal(contiguousKv.blocks.length, 64);
+    assert.equal(pagedKv.blocks.length, 64);
+    assert.ok(pagedKv.wastedVramPercent < contiguousKv.wastedVramPercent);
+
+    const ragasGrounded = computeRagasFaithfulness('grounded');
+    const ragasHallucinated = computeRagasFaithfulness('hallucinated');
+    assert.equal(ragasGrounded.guardrailAction, 'PASS_STREAM');
+    assert.equal(ragasHallucinated.guardrailAction, 'BLOCK_FALLBACK');
+  });
+
+  it('provides curated A/B Architecture Battle presets and dynamic Custom Stack benchmark synthesis', () => {
+    assert.equal(BATTLE_PRESETS.length, 3);
+    for (const preset of BATTLE_PRESETS) {
+      assert.ok(preset.contenderB.p99LatencyMs < preset.contenderA.p99LatencyMs);
+      assert.ok(
+        preset.contenderB.throughputRps > preset.contenderA.throughputRps
+      );
+      assert.equal(
+        Object.keys(preset.contenderA.stageLatenciesMs).length,
+        8
+      );
+      assert.equal(
+        Object.keys(preset.contenderB.stageLatenciesMs).length,
+        8
+      );
+    }
+
+    const customBattle = buildCustomStackBattlePreset(DEFAULT_STACK_SELECTIONS);
+    assert.equal(customBattle.id, 'battle-04-custom-stack');
+    assert.ok(
+      customBattle.contenderB.p99LatencyMs < customBattle.contenderA.p99LatencyMs
+    );
+    assert.equal(
+      Object.keys(customBattle.contenderB.stageLatenciesMs).length,
+      8
+    );
+  });
+});
+
 

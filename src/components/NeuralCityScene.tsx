@@ -49,7 +49,9 @@ export interface NeuralCitySceneProps {
   activeWorkload?: WorkloadPresetId;
   activeBottleneck?: BottleneckScenarioId;
   isBlueprintMode?: boolean;
+  isBattleRaceActive?: boolean;
   onSelectDistrict: (id: DistrictId | null) => void;
+  onDoubleClickDistrict?: (id: DistrictId) => void;
   onHoverDistrict: (id: DistrictId | null) => void;
 }
 
@@ -294,7 +296,9 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
     activeWorkload = 'multimodal-vision',
     activeBottleneck = 'none',
     isBlueprintMode = false,
+    isBattleRaceActive = false,
     onSelectDistrict,
+    onDoubleClickDistrict,
     onHoverDistrict,
   } = props;
 
@@ -515,6 +519,7 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
             activeWorkload={activeWorkload}
             activeBottleneck={activeBottleneck}
             isBlueprintMode={isBlueprintMode}
+            isBattleRaceActive={isBattleRaceActive}
           />
 
           {/* The 8 Core AI Pipeline Districts */}
@@ -555,6 +560,7 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
                 isBottleneckTarget={isBottleneckTarget}
                 isAdversarialShieldActive={isAdversarialShieldActive}
                 onSelect={(id) => onSelectDistrict(id)}
+                onDoubleClick={onDoubleClickDistrict}
                 onHover={onHoverDistrict}
               />
             );

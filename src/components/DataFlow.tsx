@@ -32,6 +32,7 @@ interface DataFlowProps {
   activeWorkload?: WorkloadPresetId;
   activeBottleneck?: BottleneckScenarioId;
   isBlueprintMode?: boolean;
+  isBattleRaceActive?: boolean;
 }
 
 interface CurveItem {
@@ -62,6 +63,7 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   activeWorkload = 'multimodal-vision',
   activeBottleneck = 'none',
   isBlueprintMode = false,
+  isBattleRaceActive = false,
 }) => {
   const instancedRef = useRef<THREE.InstancedMesh>(null);
   const heroPacketRef = useRef<THREE.Group>(null);
@@ -78,6 +80,7 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   const highlightColor = useMemo(() => new THREE.Color('#00F0FF'), []);
   const overdriveColor = useMemo(() => new THREE.Color('#FDE047'), []);
   const bottleneckColor = useMemo(() => new THREE.Color('#EF4444'), []);
+  const battleAmberColor = useMemo(() => new THREE.Color('#F59E0B'), []);
 
   const workloadSpec =
     WORKLOAD_PRESET_MAP[activeWorkload] ||
@@ -201,15 +204,27 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         (trainingMode && isTrainingPath ? 1.5 : 1.0);
 
       for (let k = 0; k < PARTICLES_PER_PATH; k++) {
+        const isOptimizedContenderB = k % 2 === 0;
+        const battleSpeedFactor = isBattleRaceActive
+          ? isOptimizedContenderB
+            ? 2.25
+            : 0.36
+          : 1.0;
         const currentProg =
-          (progressRef.current[instanceIdx] + effectiveDelta * pathSpeed) % 1;
+          (progressRef.current[instanceIdx] +
+            effectiveDelta * pathSpeed * battleSpeedFactor) %
+          1;
         progressRef.current[instanceIdx] = currentProg;
 
         item.curve.getPointAt(currentProg, tempPos);
         tempPos.y += Math.sin(currentProg * Math.PI) * 0.18;
 
         dummy.position.copy(tempPos);
-        const scaleBase = isBottleneckPath
+        const scaleBase = isBattleRaceActive
+          ? isOptimizedContenderB
+            ? 0.22
+            : 0.16
+          : isBottleneckPath
           ? 0.21
           : isOverdrive
           ? 0.2
@@ -223,7 +238,11 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         instancedRef.current.setMatrixAt(instanceIdx, dummy.matrix);
         instancedRef.current.setColorAt(
           instanceIdx,
-          isBottleneckPath
+          isBattleRaceActive
+            ? isOptimizedContenderB
+              ? highlightColor
+              : battleAmberColor
+            : isBottleneckPath
             ? bottleneckColor
             : isWorkloadActivePath
             ? workloadColor

@@ -29,6 +29,7 @@ interface DistrictProps {
   isBottleneckTarget?: boolean;
   isAdversarialShieldActive?: boolean;
   onSelect: (id: DistrictId) => void;
+  onDoubleClick?: (id: DistrictId) => void;
   onHover: (id: DistrictId | null) => void;
 }
 
@@ -51,6 +52,7 @@ export const District: React.FC<DistrictProps> = ({
   isBottleneckTarget = false,
   isAdversarialShieldActive = false,
   onSelect,
+  onDoubleClick,
   onHover,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
@@ -223,6 +225,11 @@ export const District: React.FC<DistrictProps> = ({
     onSelect(district.id);
   };
 
+  const handleDoubleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    onDoubleClick?.(district.id);
+  };
+
   const [fw, fd] = district.footprint;
   const i0 = isSelected ? 1.8 : activeHover ? 1.5 : isHighlighted ? 1.2 : 0.9;
   const emissiveBoost = i0 + masteryRatio * 1.15;
@@ -248,6 +255,7 @@ export const District: React.FC<DistrictProps> = ({
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
       >
         {/* District Plinth Base */}
         <RoundedBox args={[fw, 0.4, fd]} position={[0, 0.2, 0]} radius={0.1} smoothness={2} receiveShadow castShadow>
@@ -918,6 +926,10 @@ export const District: React.FC<DistrictProps> = ({
               onClick={(e) => {
                 e.stopPropagation();
                 onSelect(district.id);
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                onDoubleClick?.(district.id);
               }}
               onMouseEnter={() => {
                 setLocalHover(true);

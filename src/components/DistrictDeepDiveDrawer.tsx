@@ -67,6 +67,7 @@ export interface DistrictDeepDiveDrawerProps {
   onToggleDataFlow: (districtId: DistrictId) => void;
   onOpenStackBuilder?: () => void;
   onOpenCaseStudies?: () => void;
+  onOpenMicroLab?: (districtId: DistrictId) => void;
 }
 
 const CATEGORY_BADGE_STYLES: Record<
@@ -141,6 +142,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
   onToggleDataFlow,
   onOpenStackBuilder,
   onOpenCaseStudies,
+  onOpenMicroLab,
 }) => {
   const { t } = useLanguage();
   const [internalTab, setInternalTab] = useState<DeepDiveTab>('roadmap');
@@ -372,22 +374,35 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => onToggleDataFlow(districtId)}
-              aria-pressed={isFlowHighlighted}
-              title="Highlight 3D Data Flow Pathways"
-              className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 font-mono text-[10px] font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-                isFlowHighlighted
-                  ? 'bg-cyan-400 text-slate-950 shadow-md shadow-cyan-500/25'
-                  : isNight
-                  ? 'border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
-                  : 'border border-cyan-600/40 bg-cyan-50 text-cyan-900 hover:bg-cyan-100'
-              }`}
-            >
-              <Share2 aria-hidden="true" className="h-3 w-3" />
-              <span>{isFlowHighlighted ? 'Flow Active' : 'Data Flow'}</span>
-            </button>
+            <div className="shrink-0 flex flex-wrap items-center gap-1.5">
+              {onOpenMicroLab && (
+                <button
+                  type="button"
+                  onClick={() => onOpenMicroLab(districtId)}
+                  title="Enter Interior Algorithmic Micro-Lab [L] or Double-Click 3D Building"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-400 bg-cyan-400 px-2.5 py-1.5 font-mono text-[10px] font-bold text-slate-950 shadow-lg shadow-cyan-500/25 hover:bg-cyan-300 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                >
+                  <span>🔬 {t.header.btnEnterLab} [L]</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => onToggleDataFlow(districtId)}
+                aria-pressed={isFlowHighlighted}
+                title="Highlight 3D Data Flow Pathways"
+                className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 font-mono text-[10px] font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                  isFlowHighlighted
+                    ? 'bg-cyan-400 text-slate-950 shadow-md shadow-cyan-500/25'
+                    : isNight
+                    ? 'border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
+                    : 'border border-cyan-600/40 bg-cyan-50 text-cyan-900 hover:bg-cyan-100'
+                }`}
+              >
+                <Share2 aria-hidden="true" className="h-3 w-3" />
+                <span>{isFlowHighlighted ? 'Flow Active' : 'Data Flow'}</span>
+              </button>
+            </div>
           </div>
 
           {/* District Mastery Progress Bar */}
