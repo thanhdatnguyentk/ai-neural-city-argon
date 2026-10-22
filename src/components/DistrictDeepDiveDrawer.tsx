@@ -42,6 +42,12 @@ import type {
   ComputedSimulationTelemetry,
 } from '../data/bottleneck-scenarios.ts';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  getLocalizedDeepDiveUI,
+  getLocalizedMilestone,
+  getLocalizedLandmark,
+} from '../data/deep-dive-locales.ts';
+import { getLocalizedQuiz } from '../data/quiz-locales.ts';
 
 export type DeepDiveTab = 'roadmap' | 'landmarks' | 'quiz' | 'sandbox';
 
@@ -144,7 +150,8 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
   onOpenCaseStudies,
   onOpenMicroLab,
 }) => {
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
+  const dUi = getLocalizedDeepDiveUI(lang);
   const [internalTab, setInternalTab] = useState<DeepDiveTab>('roadmap');
   const currentTab = controlledTab ?? internalTab;
 
@@ -189,11 +196,15 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
   const districtProgress = getDistrictProgress(districtId);
   const cityMastery = getTotalCityMastery();
 
-  const sortedLandmarks: LandmarkWork[] = [...deepDive.landmarks].sort(
-    (a, b) => a.year - b.year
+  const localizedRoadmap: RoadmapMilestone[] = deepDive.roadmap.map((m) =>
+    getLocalizedMilestone(m, lang)
   );
-  const districtQuizzes: DistrictQuizQuestion[] =
-    getDistrictQuizzes(districtId);
+  const sortedLandmarks: LandmarkWork[] = [...deepDive.landmarks]
+    .sort((a, b) => a.year - b.year)
+    .map((lm) => getLocalizedLandmark(lm, lang));
+  const districtQuizzes: DistrictQuizQuestion[] = getDistrictQuizzes(
+    districtId
+  ).map((q) => getLocalizedQuiz(q, lang));
 
   const handleSelectQuizOption = (
     q: DistrictQuizQuestion,
@@ -548,7 +559,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
           {/* ==================== TAB 1: ZERO-TO-HERO ROADMAP ==================== */}
           {currentTab === 'roadmap' && (
             <div className="relative space-y-4">
-              {deepDive.roadmap.map(
+              {localizedRoadmap.map(
                 (milestone: RoadmapMilestone, idx: number) => {
                   const completed = isCompleted(milestone.id);
                   const isHighlightedFix =
@@ -572,11 +583,11 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                       {isHighlightedFix && (
                         <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-amber-400/60 bg-amber-500/20 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase text-amber-300">
                           <Zap aria-hidden="true" className="h-3 w-3" />
-                          <span>Recommended Bottleneck Remediation</span>
+                          <span>{dUi.recommendedFixBadge}</span>
                         </div>
                       )}
 
-                      {idx < deepDive.roadmap.length - 1 && (
+                      {idx < localizedRoadmap.length - 1 && (
                         <div
                           aria-hidden="true"
                           className={`hidden sm:block absolute left-6 -bottom-4 h-4 w-0.5 ${
@@ -622,7 +633,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                               aria-hidden="true"
                               className="h-3 w-3"
                             />
-                            <span>Take Quiz to Verify</span>
+                            <span>{dUi.takeQuizBtn}</span>
                           </button>
 
                           <button
@@ -650,7 +661,9 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                               />
                             )}
                             <span>
-                              {completed ? 'Completed' : 'Mark Completed'}
+                              {completed
+                                ? dUi.completedBtn
+                                : dUi.markCompletedBtn}
                             </span>
                           </button>
                         </div>
@@ -674,7 +687,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                             isNight ? 'text-slate-400' : 'text-slate-600'
                           }`}
                         >
-                          Core Engineering Concepts
+                          {dUi.coreConceptsHeading}
                         </span>
                         <div className="flex flex-wrap gap-1.5">
                           {milestone.coreConcepts.map((concept) => (
@@ -699,7 +712,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                             isNight ? 'text-cyan-400' : 'text-cyan-800'
                           }`}
                         >
-                          Production Tech Stack
+                          {dUi.techStackHeading}
                         </span>
                         <div className="flex flex-wrap gap-1.5">
                           {milestone.techStack.map((tech) => (
@@ -735,7 +748,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                             aria-hidden="true"
                             className="h-3.5 w-3.5"
                           />
-                          <span>Capstone Deliverable</span>
+                          <span>{dUi.capstoneHeading}</span>
                         </div>
                         <p className="mt-1 text-xs leading-relaxed font-medium">
                           {milestone.capstoneDeliverable}
@@ -781,7 +794,8 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                             isNight ? badgeStyle.dark : badgeStyle.light
                           }`}
                         >
-                          {landmark.category}
+                          {dUi.categories[landmark.category] ||
+                            landmark.category}
                         </span>
                       </div>
 
@@ -795,7 +809,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                             : 'border-cyan-600/40 bg-cyan-50 text-cyan-900 hover:bg-cyan-100'
                         }`}
                       >
-                        <span>View Paper / Spec</span>
+                        <span>{dUi.viewPaperBtn}</span>
                         <ExternalLink
                           aria-hidden="true"
                           className="h-3 w-3"
@@ -838,7 +852,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                       />
                       <span>
                         <strong className="uppercase text-[10px] tracking-wider mr-1.5">
-                          Impact:
+                          {dUi.impactLabel}
                         </strong>
                         {landmark.impactMetricOrNote}
                       </span>
@@ -859,9 +873,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                     : 'border-cyan-600/30 bg-cyan-50 text-cyan-900'
                 }`}
               >
-                Answer each level&apos;s engineering verification question
-                correctly to automatically unlock that Roadmap milestone and
-                evolve the 3D District architecture.
+                {dUi.quizBanner}
               </div>
 
               {districtQuizzes.map((q, qIdx) => {
@@ -896,7 +908,8 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                             : 'border-violet-600/40 bg-violet-50 text-violet-900'
                         }`}
                       >
-                        Level 0{qIdx + 1} Verification Challenge
+                        {dUi.quizLevelPrefix} 0{qIdx + 1}{' '}
+                        {dUi.quizChallengeSuffix}
                       </span>
                       {(isCorrect || milestoneCompleted) && (
                         <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-emerald-400">
@@ -904,7 +917,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                             aria-hidden="true"
                             className="h-3.5 w-3.5"
                           />
-                          <span>Milestone Verified</span>
+                          <span>{dUi.milestoneVerifiedBadge}</span>
                         </span>
                       )}
                     </div>
@@ -964,8 +977,8 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                       >
                         <div className="font-mono text-[10px] font-bold uppercase tracking-wider mb-1">
                           {isCorrect
-                            ? '✓ Correct — Milestone Unlocked & 3D Pulse Triggered!'
-                            : '✕ Architectural Insight — Try Again:'}
+                            ? dUi.quizCorrectHeading
+                            : dUi.quizIncorrectHeading}
                         </div>
                         <p>{q.technicalExplanation}</p>
                       </div>
@@ -986,10 +999,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                     : 'border-violet-300 bg-violet-50 text-violet-900'
                 }`}
               >
-                Configure LLM parameter scale, quantization precision, context
-                window, and batch size. Exceeding target GPU memory
-                automatically triggers a live <strong>KV-Cache OOM</strong>{' '}
-                bottleneck in the 3D city!
+                {dUi.vramBanner}
               </div>
 
               {/* OOM Alert Callout with 1-Click Auto-Fix */}
@@ -1001,14 +1011,15 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                       className="h-4 w-4 shrink-0 animate-bounce"
                     />
                     <span>
-                      GPU HBM OOM: {computedTelemetry.totalVramRequiredGb} GB
-                      Required &gt; {vramConfig.gpuMemoryBudgetGb} GB Budget
+                      {dUi.oomTitlePrefix} {computedTelemetry.totalVramRequiredGb}{' '}
+                      GB {dUi.oomRequiredLabel} {vramConfig.gpuMemoryBudgetGb} GB{' '}
+                      {dUi.oomBudgetLabel}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-rose-200">
-                    District 7 (Inference Engine) is thrashing HBM memory
-                    (Latency: {computedTelemetry.inferenceLatencyMs} ms). Apply
-                    an architectural fix below:
+                    {dUi.oomDescriptionPrefix}{' '}
+                    {computedTelemetry.inferenceLatencyMs} ms
+                    {dUi.oomDescriptionSuffix}
                   </p>
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {vramConfig.quantization !== 'INT4_AWQ' && (
@@ -1019,7 +1030,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                         }
                         className="rounded-lg bg-cyan-400 px-2.5 py-1 font-mono text-[10px] font-bold text-slate-950 hover:bg-cyan-300 cursor-pointer"
                       >
-                        Switch to INT4 AWQ (4x Compression)
+                        {dUi.fixInt4Btn}
                       </button>
                     )}
                     {vramConfig.contextLength > 4096 && (
@@ -1030,7 +1041,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                         }
                         className="rounded-lg border border-cyan-400/50 bg-cyan-500/20 px-2.5 py-1 font-mono text-[10px] font-semibold text-cyan-200 hover:bg-cyan-500/30 cursor-pointer"
                       >
-                        Reduce Context to 4K
+                        {dUi.fixContext4kBtn}
                       </button>
                     )}
                     {vramConfig.gpuMemoryBudgetGb < 640 && (
@@ -1041,7 +1052,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                         }
                         className="rounded-lg border border-violet-400/50 bg-violet-500/20 px-2.5 py-1 font-mono text-[10px] font-semibold text-violet-200 hover:bg-violet-500/30 cursor-pointer"
                       >
-                        Scale to 8x H100 Node (640 GB)
+                        {dUi.fixScale8xH100Btn}
                       </button>
                     )}
                   </div>
@@ -1058,7 +1069,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
               >
                 <div className="flex items-center justify-between font-mono text-xs">
                   <span className="font-bold uppercase tracking-wider">
-                    Total VRAM Footprint
+                    {dUi.totalVramFootprint}
                   </span>
                   <span
                     className={`text-sm font-bold ${
@@ -1087,7 +1098,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                   <div
                     className="h-full bg-cyan-400 transition-all duration-300"
                     style={{ width: `${weightsRatio}%` }}
-                    title={`Model Weights: ${computedTelemetry.weightsVramGb} GB`}
+                    title={`${dUi.weightsVram}: ${computedTelemetry.weightsVramGb} GB`}
                   />
                   <div
                     className={`h-full transition-all duration-300 ${
@@ -1096,7 +1107,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                         : 'bg-violet-500'
                     }`}
                     style={{ width: `${kvRatio}%` }}
-                    title={`KV-Cache: ${computedTelemetry.kvCacheVramGb} GB`}
+                    title={`${dUi.kvCacheVram}: ${computedTelemetry.kvCacheVramGb} GB`}
                   />
                 </div>
 
@@ -1109,7 +1120,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                     }`}
                   >
                     <span className="block text-[9px] uppercase text-cyan-400">
-                      Weights VRAM
+                      {dUi.weightsVram}
                     </span>
                     <span className="font-bold">
                       {computedTelemetry.weightsVramGb} GB
@@ -1123,7 +1134,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                     }`}
                   >
                     <span className="block text-[9px] uppercase text-violet-400">
-                      KV-Cache VRAM
+                      {dUi.kvCacheVram}
                     </span>
                     <span className="font-bold">
                       {computedTelemetry.kvCacheVramGb} GB
@@ -1137,7 +1148,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                     }`}
                   >
                     <span className="block text-[9px] uppercase text-amber-400">
-                      Decode Latency
+                      {dUi.decodeLatency}
                     </span>
                     <span className="font-bold">
                       {computedTelemetry.inferenceLatencyMs} ms
@@ -1155,7 +1166,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                 }`}
               >
                 <span className="block font-mono text-[10px] font-bold uppercase tracking-wider mb-2">
-                  1. Foundation Model Scale (Parameters)
+                  {dUi.paramScaleHeading}
                 </span>
                 <div className="grid grid-cols-5 gap-1.5">
                   {PARAM_OPTIONS.map((p) => {
@@ -1191,7 +1202,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                 }`}
               >
                 <span className="block font-mono text-[10px] font-bold uppercase tracking-wider mb-2">
-                  2. Weight &amp; KV Quantization Precision
+                  {dUi.quantPrecisionHeading}
                 </span>
                 <div className="grid grid-cols-3 gap-2">
                   {QUANT_OPTIONS.map((q) => {
@@ -1233,7 +1244,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                   }`}
                 >
                   <span className="block font-mono text-[10px] font-bold uppercase tracking-wider mb-2">
-                    3. Context Window Length
+                    {dUi.contextWindowHeading}
                   </span>
                   <div className="grid grid-cols-4 gap-1">
                     {CONTEXT_OPTIONS.map((c) => {
@@ -1268,7 +1279,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between font-mono text-[10px] font-bold uppercase tracking-wider mb-2">
-                    <span>4. Concurrent Batch Size</span>
+                    <span>{dUi.batchSizeHeading}</span>
                     <span className="text-cyan-400">
                       {vramConfig.batchSize} seqs
                     </span>
@@ -1283,7 +1294,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                         batchSize: parseInt(e.target.value, 10) || 1,
                       })
                     }
-                    aria-label="Concurrent Batch Size"
+                    aria-label={dUi.batchSizeHeading}
                     className="w-full accent-cyan-400 cursor-pointer"
                   />
                   <div className="mt-1 flex justify-between font-mono text-[9px] opacity-65">
@@ -1304,7 +1315,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                 }`}
               >
                 <span className="block font-mono text-[10px] font-bold uppercase tracking-wider mb-2">
-                  5. Target GPU Cluster Hardware Budget
+                  {dUi.gpuBudgetHeading}
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {GPU_CLUSTER_OPTIONS.map((gpu) => {
@@ -1342,9 +1353,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
               : 'border-slate-200 bg-slate-100 text-slate-600'
           }`}
         >
-          <span>
-            Shortcuts: [1–8] District · [B] Blueprint · [←/→] Nav · [Esc] Close
-          </span>
+          <span>{dUi.drawerFooterShortcuts}</span>
           <span>
             VRAM: {computedTelemetry.totalVramRequiredGb}/
             {vramConfig.gpuMemoryBudgetGb} GB · {cityDistrict.metrics.throughput}
