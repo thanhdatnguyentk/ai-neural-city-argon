@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { DistrictData, DistrictId } from '@/data/districts';
 import type { DistrictMasteryMetrics } from '@/hooks/useRoadmapProgress';
 import type { DistrictSaturationMetric } from '@/types/tycoon-strategy';
+import { useLanguage } from '@/context/LanguageContext';
 import { DistrictProgressRing } from './DistrictProgressRing';
 import { MasteryBeacon } from './MasteryBeacon';
 import { MasteryShockwave } from './MasteryShockwave';
@@ -70,6 +71,8 @@ export const District: React.FC<DistrictProps> = ({
   const assemblyProgress = useRef(reducedMotion ? 1 : 0.35);
 
   const [localHover, setLocalHover] = useState(false);
+  const { t } = useLanguage();
+  const locDistrict = t.districts[district.id];
   const activeHover = isHovered || localHover;
   const isHighlighted = isSelected || activeHover || isPipelineHighlighted || isFlowHighlighted;
 
@@ -978,7 +981,7 @@ export const District: React.FC<DistrictProps> = ({
                   D{index + 1}
                 </span>
                 <span className="font-mono text-[10px] font-bold tracking-wider uppercase whitespace-nowrap">
-                  {district.name}
+                  {locDistrict?.name || district.name}
                 </span>
                 {isStandbyInMode && standbyBadgeText && (
                   <span className="ml-0.5 inline-flex items-center rounded-full border border-slate-500/80 bg-slate-900/95 px-1.5 py-0.2 font-mono text-[8px] font-bold tracking-wider text-slate-300 whitespace-nowrap">
@@ -1037,7 +1040,7 @@ export const District: React.FC<DistrictProps> = ({
                       isNight ? 'text-slate-200' : 'text-slate-700'
                     }`}
                   >
-                    {district.tagline}
+                    {locDistrict?.tagline || district.tagline}
                   </p>
                   <div
                     className={`mt-1.5 flex items-center justify-between border-t pt-1.5 font-mono text-[10px] ${
@@ -1047,7 +1050,7 @@ export const District: React.FC<DistrictProps> = ({
                     }`}
                   >
                     <span>{district.metrics.throughput}</span>
-                    <span>Click to inspect →</span>
+                    <span>{t.ui.clickToInspect}</span>
                   </div>
                 </div>
               )}

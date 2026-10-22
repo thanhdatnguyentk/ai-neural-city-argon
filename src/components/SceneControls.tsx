@@ -16,6 +16,7 @@ import {
   Layers,
   ScanLine,
 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface SceneControlsProps {
   showLabels: boolean;
@@ -68,6 +69,9 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
   onToggle2D,
   onToggleBlueprintMode,
 }) => {
+  const { t } = useLanguage();
+  const sc = t.ui.sceneControls;
+
   const panelClass = isNight
     ? 'hud-glass-dark text-slate-200'
     : 'hud-glass-light text-slate-800';
@@ -94,7 +98,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         }`}
       >
         <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
-        <span>{isDemoRunning ? 'Stop Demo' : 'Run a demo'}</span>
+        <span>{isDemoRunning ? sc.stopDemo : sc.runDemo}</span>
       </button>
 
       <div
@@ -109,7 +113,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         type="button"
         onClick={onTogglePause}
         aria-pressed={isPaused}
-        title={isPaused ? 'Resume animation' : 'Pause animation'}
+        title={isPaused ? sc.resume : sc.pause}
         className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
           isPaused
             ? isNight
@@ -121,12 +125,12 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         {isPaused ? (
           <>
             <Play aria-hidden="true" className="h-3.5 w-3.5 fill-current" />
-            <span>Resume</span>
+            <span>{sc.resume}</span>
           </>
         ) : (
           <>
             <Pause aria-hidden="true" className="h-3.5 w-3.5" />
-            <span>Pause</span>
+            <span>{sc.pause}</span>
           </>
         )}
       </button>
@@ -134,7 +138,9 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
       {/* Data Flow Speed Control */}
       <div
         className={`inline-flex items-center rounded-xl border p-0.5 font-mono text-[11px] ${
-          isNight ? 'border-slate-700/80 bg-slate-950/80' : 'border-slate-300 bg-slate-100'
+          isNight
+            ? 'border-slate-700/80 bg-slate-950/80'
+            : 'border-slate-300 bg-slate-100'
         }`}
         role="group"
         aria-label="Data flow speed"
@@ -144,7 +150,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
             isNight ? 'text-slate-400' : 'text-slate-600'
           }`}
         >
-          Speed
+          {sc.speed}
         </span>
         {SPEED_OPTIONS.map((spd) => {
           const active = Math.abs(flowSpeed - spd) < 0.05;
@@ -173,7 +179,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         type="button"
         onClick={onToggleTrainingMode}
         aria-pressed={trainingMode}
-        title="Boost GPU Training Cluster activity"
+        title={sc.trainingBoost}
         className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
           trainingMode
             ? isNight
@@ -183,7 +189,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         }`}
       >
         <Zap aria-hidden="true" className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Training Boost</span>
+        <span className="hidden sm:inline">{sc.trainingBoost}</span>
       </button>
 
       {/* Blueprint / X-Ray Mode Toggle [B] */}
@@ -192,7 +198,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
           type="button"
           onClick={onToggleBlueprintMode}
           aria-pressed={isBlueprintMode}
-          title="Toggle Blueprint / X-Ray Architecture Mode [B]"
+          title={t.header.btnBlueprint}
           className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 font-mono text-xs transition-all cursor-pointer ${
             isBlueprintMode || activeKeyFlash === 'b'
               ? 'border-cyan-400 bg-cyan-400 text-slate-950 font-bold shadow-md shadow-cyan-500/25'
@@ -200,7 +206,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
           }`}
         >
           <ScanLine aria-hidden="true" className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Blueprint [B]</span>
+          <span className="hidden sm:inline">{t.header.btnBlueprint}</span>
         </button>
       )}
 
@@ -209,7 +215,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         type="button"
         onClick={onToggleLabels}
         aria-pressed={showLabels}
-        title="Toggle district labels"
+        title={sc.labels}
         className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
           showLabels
             ? isNight
@@ -219,7 +225,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         }`}
       >
         <Tag aria-hidden="true" className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Labels</span>
+        <span className="hidden sm:inline">{sc.labels}</span>
       </button>
 
       <div
@@ -230,7 +236,11 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
       />
 
       {/* Camera Orbit / Zoom / Reset Controls */}
-      <div className="inline-flex items-center gap-1" role="group" aria-label="Camera controls">
+      <div
+        className="inline-flex items-center gap-1"
+        role="group"
+        aria-label="Camera controls"
+      >
         <button
           type="button"
           onClick={onRotateLeft}
@@ -270,14 +280,14 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         <button
           type="button"
           onClick={onResetCamera}
-          title="Reset camera to default isometric view [R]"
+          title={sc.resetCamera}
           className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
             activeKeyFlash === 'r'
               ? 'border-cyan-400 bg-cyan-400 text-slate-950 font-bold'
               : btnClass
           }`}
         >
-          <span>Reset [R]</span>
+          <span>{sc.resetCamera}</span>
         </button>
       </div>
 
@@ -285,7 +295,9 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
       <button
         type="button"
         onClick={onToggleNight}
-        aria-label={isNight ? 'Switch to daylight diorama mode' : 'Switch to night mode'}
+        aria-label={
+          isNight ? 'Switch to daylight diorama mode' : 'Switch to night mode'
+        }
         title={isNight ? 'Switch to Day mode' : 'Switch to Night mode'}
         className={`rounded-xl border p-2 transition-colors cursor-pointer ${btnClass}`}
       >
@@ -301,17 +313,19 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
         type="button"
         onClick={onToggle2D}
         aria-pressed={forceSimplified2D}
-        title="Toggle 2D Isometric Schematic View"
+        title="Toggle between 3D WebGL Diorama and 2D Isometric Schematic"
         className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
           forceSimplified2D
             ? isNight
-              ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300'
-              : 'border-cyan-600 bg-cyan-50 text-cyan-900 font-semibold'
+              ? 'border-amber-400 bg-amber-500/20 text-amber-300 font-semibold'
+              : 'border-amber-600 bg-amber-100 text-amber-900 font-semibold'
             : btnClass
         }`}
       >
         <Layers aria-hidden="true" className="h-3.5 w-3.5" />
-        <span className="hidden lg:inline">{forceSimplified2D ? '3D View' : '2D Lite'}</span>
+        <span className="hidden md:inline">
+          {forceSimplified2D ? sc.view2d : sc.view3d}
+        </span>
       </button>
     </div>
   );

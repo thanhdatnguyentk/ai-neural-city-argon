@@ -87,13 +87,16 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
   onOpenRoadmapDrawer,
 }) => {
   const { t } = useLanguage();
+  const wt = t.ui.walkthrough;
   const currentStep =
     PIPELINE_STEPS.find((s) => s.id === activeStage) || PIPELINE_STEPS[0];
   const currentLocalizedStage = t.pipelineStages[currentStep.id];
+  const currentLocalizedDistrict = t.districts[currentStep.districtId];
   const currentTechSpec = CANONICAL_DISTRICT_SPECS[currentStep.districtId];
   const modeSpec =
     ARCHITECTURAL_MODE_MAP[activePipelineMode] ||
     ARCHITECTURAL_MODE_MAP['online-inference'];
+  const locModeSpec = t.pipelineModes[activePipelineMode];
   const isCurrentStandby = modeSpec.standbyDistricts.includes(
     currentStep.districtId
   );
@@ -119,7 +122,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                   : 'border-cyan-600/30 bg-cyan-50 text-cyan-800'
               }`}
             >
-              Canonical 8-District Architecture ({t.nativeLabel})
+              {wt.sectionBadge} ({t.nativeLabel})
             </span>
             <h2
               id="pipeline-heading"
@@ -132,7 +135,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                 isNight ? 'text-slate-300' : 'text-slate-600'
               }`}
             >
-              Production AI systems decouple real-time inference from offline data indexing and distributed GPU training. Switch architectural modes below to inspect physical routing and tensor shapes.
+              {wt.sectionSubtitle}
             </p>
           </div>
 
@@ -143,7 +146,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                 isNight ? 'text-slate-400' : 'text-slate-600'
               }`}
             >
-              Select Decoupled Pipeline Mode:
+              {wt.selectModeLabel}
             </span>
             <div
               role="tablist"
@@ -156,6 +159,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
             >
               {ARCHITECTURAL_PIPELINE_MODES.map((m) => {
                 const isSelectedMode = m.id === activePipelineMode;
+                const locM = t.pipelineModes[m.id];
                 return (
                   <button
                     key={m.id}
@@ -176,7 +180,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                     }`}
                   >
                     <Activity aria-hidden="true" className="h-3.5 w-3.5" />
-                    <span>{m.shortLabel}</span>
+                    <span>{locM?.shortLabel || m.shortLabel}</span>
                   </button>
                 );
               })}
@@ -192,9 +196,9 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
               : 'border-cyan-600/30 bg-cyan-50/70 text-cyan-900'
           }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="rounded bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
-              {modeSpec.title}
+              {locModeSpec?.title || modeSpec.title}
             </span>
             <span className="font-bold">{modeSpec.directedFlowSummary}</span>
           </div>
@@ -203,7 +207,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
               isNight ? 'text-slate-400' : 'text-slate-600'
             }`}
           >
-            {modeSpec.workloadExample}
+            {locModeSpec?.workloadExample || modeSpec.workloadExample}
           </span>
         </div>
 
@@ -253,7 +257,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                   </span>
                   {isStandby ? (
                     <span className="rounded border border-slate-600/60 px-1 py-0.2 font-mono text-[8px] uppercase text-slate-400">
-                      STANDBY
+                      {wt.standbyLabel}
                     </span>
                   ) : (
                     idx < PIPELINE_STEPS.length - 1 && (
@@ -308,15 +312,17 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                   isNight ? 'text-cyan-400' : 'text-cyan-700'
                 }`}
               >
-                District {currentTechSpec.code} of D8 • {currentTechSpec.canonicalName}
+                {currentTechSpec.code} / D8 •{' '}
+                {currentLocalizedDistrict?.name || currentTechSpec.canonicalName}
               </span>
               {isCurrentStandby ? (
                 <span className="rounded-md border border-amber-400/60 bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-amber-200">
-                  [{modeSpec.standbyBadgeText}]
+                  [{locModeSpec?.standbyBadgeText || modeSpec.standbyBadgeText}]
                 </span>
               ) : (
                 <span className="rounded-md border border-emerald-400/50 bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-emerald-300">
-                  [ACTIVE IN {modeSpec.shortLabel.toUpperCase()}]
+                  [{wt.activeInModePrefix}{' '}
+                  {(locModeSpec?.shortLabel || modeSpec.shortLabel).toUpperCase()}]
                 </span>
               )}
             </div>
@@ -334,10 +340,12 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
               }`}
             >
               <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-400">
-                Architectural Role in {modeSpec.title}:
+                {wt.archRoleInPrefix} {locModeSpec?.title || modeSpec.title}:
               </div>
               <p className="mt-1 text-xs leading-relaxed">
-                {currentTechSpec.modeRoleSummary[activePipelineMode]}
+                {currentLocalizedDistrict?.modeRoleSummaries?.[
+                  activePipelineMode
+                ] || currentTechSpec.modeRoleSummary[activePipelineMode]}
               </p>
             </div>
 
@@ -346,7 +354,8 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                 isNight ? 'text-slate-300' : 'text-slate-700'
               }`}
             >
-              {currentStep.plainExplanation}
+              {currentLocalizedStage?.plainExplanation ||
+                currentStep.plainExplanation}
             </p>
 
             {/* Hardware Bottleneck Badge */}
@@ -367,7 +376,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                   isNight ? 'text-slate-400' : 'text-slate-600'
                 }`}
               >
-                Roofline Constraint: {currentTechSpec.dominantHardwareBound}
+                {wt.rooflineConstraint}: {currentTechSpec.dominantHardwareBound}
               </p>
             </div>
 
@@ -377,7 +386,9 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                 onClick={() => onSelectDistrictAndScroll(currentStep.districtId)}
                 className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 font-mono text-xs font-bold text-slate-950 hover:bg-cyan-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
               >
-                <span>Inspect {currentTechSpec.code} in 3D City</span>
+                <span>
+                  {wt.inspectIn3dPrefix} ({currentTechSpec.code})
+                </span>
                 <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
               {onOpenRoadmapDrawer && (
@@ -391,7 +402,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                   }`}
                 >
                   <Layers aria-hidden="true" className="h-3.5 w-3.5" />
-                  <span>View Roadmap &amp; Landmarks</span>
+                  <span>{wt.viewRoadmapBtn}</span>
                 </button>
               )}
             </div>
@@ -409,7 +420,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
               <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan-400">
                   <Terminal aria-hidden="true" className="h-4 w-4" />
-                  <span>Wire Protocol &amp; Tensor Specification</span>
+                  <span>{wt.specBoxTitle}</span>
                 </div>
                 <span className="rounded bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
                   {currentTechSpec.code} SPEC
@@ -419,7 +430,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
               <div className="mt-3 space-y-2.5 text-xs">
                 <div className="rounded-lg border border-slate-800/90 bg-slate-900/90 p-2.5">
                   <div className="text-[10px] uppercase tracking-wider text-slate-400">
-                    Wire Protocol &amp; Tensor Shape Specification:
+                    {wt.protocolAndTensorLabel}
                   </div>
                   <div className="mt-1 text-cyan-300 font-semibold break-words leading-relaxed">
                     {currentTechSpec.wireProtocolAndTensorSpec}
@@ -428,16 +439,17 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
 
                 <div className="rounded-lg border border-slate-800/90 bg-slate-900/90 p-2.5">
                   <div className="text-[10px] uppercase tracking-wider text-slate-400">
-                    Core Engineering Responsibility:
+                    {wt.coreResponsibilityLabel}
                   </div>
                   <div className="mt-0.5 text-emerald-300 font-semibold break-words">
-                    {currentTechSpec.coreResponsibility}
+                    {currentLocalizedDistrict?.domainTitle ||
+                      currentTechSpec.coreResponsibility}
                   </div>
                 </div>
 
                 <div className="rounded-lg border border-slate-800/90 bg-slate-900/90 p-2.5">
                   <div className="text-[10px] uppercase tracking-wider text-slate-400">
-                    Primary Production Stack:
+                    {wt.productionStackLabel}
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1.5">
                     {currentTechSpec.primaryProductionStack.map((tech) => (
@@ -453,17 +465,18 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
 
                 <div className="rounded-lg border border-slate-800/90 bg-slate-900/90 p-2.5">
                   <div className="text-[10px] uppercase tracking-wider text-slate-400">
-                    Dominant Hardware Bound:
+                    {wt.hardwareBoundLabel}
                   </div>
                   <div className="mt-0.5 text-amber-300 font-semibold break-words">
-                    {currentTechSpec.dominantHardwareBound} · [{currentTechSpec.hardwareBottleneckBadge}]
+                    {currentTechSpec.dominantHardwareBound} · [
+                    {currentTechSpec.hardwareBottleneckBadge}]
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Canonical Stage Mapping:</span>
+              <span>{wt.canonicalStageMapping}</span>
               <span className="font-bold text-cyan-400">
                 {currentTechSpec.code} ({currentStep.id})
               </span>
@@ -478,7 +491,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
               isNight ? 'text-slate-400' : 'text-slate-600'
             }`}
           >
-            All 8 Canonical Neural City Districts (D1–D8) — Click any district to focus camera
+            {wt.all8Heading}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {DISTRICTS.map((district) => {
@@ -516,7 +529,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                       <div className="flex items-center gap-1.5">
                         {isStandby && (
                           <span className="rounded border border-slate-600/80 bg-slate-800/80 px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-400">
-                            STANDBY
+                            {wt.standbyLabel}
                           </span>
                         )}
                         {progress && (
@@ -579,7 +592,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                           isNight ? 'text-cyan-400' : 'text-cyan-700'
                         }`}
                       >
-                        Focus 3D →
+                        {wt.focus3dBtn}
                       </button>
                     </div>
 

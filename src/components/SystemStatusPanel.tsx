@@ -23,10 +23,8 @@ import {
 } from '@/data/bottleneck-scenarios';
 import { ARCHITECTURAL_PIPELINE_MODES } from '@/data/pipeline-modes';
 import { computeModeGroundedTelemetry } from '@/lib/telemetry-physics';
-import type {
-  ArchitecturalPipelineModeId,
-  TelemetryPhysicsCard,
-} from '@/types/pipeline-modes';
+import type { ArchitecturalPipelineModeId } from '@/types/pipeline-modes';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface SystemStatusPanelProps {
   isPaused: boolean;
@@ -59,16 +57,16 @@ export const HeroStatusHUD: React.FC<{
   isPaused,
   flowSpeed,
   isNight,
-  masteryCompleted = 0,
-  masteryTotal = 32,
   computedTelemetry,
   activeBottleneck = 'none',
   activePipelineMode = 'online-inference',
 }) => {
+  const { lang } = useLanguage();
   const groundedReport = computeModeGroundedTelemetry(activePipelineMode, {
     flowSpeed,
     computedTelemetry,
     activeBottleneck,
+    lang,
   });
 
   const isCritical =
@@ -220,11 +218,14 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
   onSelectBottleneck,
   onFixBottleneck,
 }) => {
+  const { lang, t } = useLanguage();
+  const tm = t.ui.telemetry;
   const [jitterOffset, setJitterOffset] = useState(0);
 
   const masteryRatio = masteryTotal > 0 ? masteryCompleted / masteryTotal : 0;
   const isSingularity = masteryCompleted >= masteryTotal && masteryTotal > 0;
   const bottleneckObj = BOTTLENECK_SCENARIO_MAP[activeBottleneck];
+  const locBottleneck = t.bottlenecks[activeBottleneck];
   const isBottleneckActive = activeBottleneck !== 'none';
 
   useEffect(() => {
@@ -239,6 +240,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
     flowSpeed: Math.max(0.2, flowSpeed + jitterOffset * 0.05),
     computedTelemetry,
     activeBottleneck,
+    lang,
   });
 
   const isStaticSnapshot = isPaused || reducedMotion;
@@ -267,7 +269,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                   isNight ? 'text-cyan-400' : 'text-cyan-800'
                 }`}
               >
-                Physically Grounded Telemetry &amp; Chaos Suite ({groundedReport.modeLabel})
+                {tm.sectionTitle} ({groundedReport.modeLabel})
               </h2>
               <span
                 className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${
@@ -283,10 +285,10 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                 }`}
               >
                 {isBottleneckActive
-                  ? 'FAULT INJECTED'
+                  ? tm.faultInjected
                   : isStaticSnapshot
-                  ? 'Static Snapshot'
-                  : 'Roofline Physics Active'}
+                  ? tm.staticSnapshot
+                  : tm.rooflineActive}
               </span>
             </div>
             <p
@@ -294,7 +296,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                 isNight ? 'text-slate-300' : 'text-slate-600'
               }`}
             >
-              Metrics dynamically isolate by Pipeline Mode — Online Inference (TTFT, TPOT, E2E P99, KV-Cache) never conflates with Offline Indexing or Distributed Training (MFU, ZeRO-3, Step Loss).
+              {tm.sectionSubtitle}
             </p>
           </div>
 
@@ -311,6 +313,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
             >
               {ARCHITECTURAL_PIPELINE_MODES.map((m) => {
                 const active = m.id === activePipelineMode;
+                const locM = t.pipelineModes[m.id];
                 return (
                   <button
                     key={m.id}
@@ -326,7 +329,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                         : 'text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    {m.shortLabel}
+                    {locM?.shortLabel || m.shortLabel}
                   </button>
                 );
               })}
@@ -340,7 +343,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
               }`}
             >
               <Info aria-hidden="true" className="h-4 w-4 shrink-0 text-amber-400" />
-              <span>Mode-Isolated Roofline Telemetry</span>
+              <span>{tm.rooflineActive}</span>
             </div>
           )}
         </div>
@@ -366,11 +369,12 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                       : 'text-amber-400'
                   }`}
                 />
-                <span>Chaos Engineering &amp; Bottleneck Simulator:</span>
+                <span>{tm.chaosSimulatorLabel}</span>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 {BOTTLENECK_SCENARIOS.map((scen) => {
                   const active = activeBottleneck === scen.id;
+                  const locScen = t.bottlenecks[scen.id];
                   return (
                     <button
                       key={scen.id}
@@ -387,7 +391,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                           : 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      {scen.shortLabel}
+                      {locScen?.shortLabel || scen.shortLabel}
                     </button>
                   );
                 })}
@@ -405,11 +409,14 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                     />
                     <div className="text-xs">
                       <span className="font-mono font-bold text-rose-300 uppercase">
-                        [{bottleneckObj.title} in{' '}
-                        {DISTRICT_MAP[bottleneckObj.targetDistrictId]?.name}]:
+                        [{locBottleneck?.title || bottleneckObj.title} —{' '}
+                        {t.districts[bottleneckObj.targetDistrictId]?.name ||
+                          DISTRICT_MAP[bottleneckObj.targetDistrictId]?.name}
+                        ]:
                       </span>{' '}
                       <span className="text-slate-300">
-                        {bottleneckObj.diagnosticMessage}
+                        {locBottleneck?.diagnosticMessage ||
+                          bottleneckObj.diagnosticMessage}
                       </span>
                     </div>
                   </div>
@@ -425,7 +432,11 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                       className="inline-flex items-center gap-1.5 shrink-0 rounded-xl bg-amber-400 px-3 py-1.5 font-mono text-[11px] font-bold text-slate-950 hover:bg-amber-300 transition-colors cursor-pointer"
                     >
                       <Wrench aria-hidden="true" className="h-3.5 w-3.5" />
-                      <span>{bottleneckObj.fixButtonLabel} →</span>
+                      <span>
+                        {locBottleneck?.fixButtonLabel ||
+                          bottleneckObj.fixButtonLabel}{' '}
+                        →
+                      </span>
                     </button>
                   )}
                 </div>
@@ -554,7 +565,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                   isNight ? 'text-slate-400' : 'text-slate-600'
                 }`}
               >
-                <span>ARCHITECT MASTERY INDEX</span>
+                <span>{tm.masteryCardTitle}</span>
                 <Award
                   aria-hidden="true"
                   className={`h-3.5 w-3.5 shrink-0 ${
@@ -597,7 +608,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                   isNight ? 'text-slate-300' : 'text-slate-700'
                 }`}
               >
-                {masteryCompleted}/{masteryTotal} Milestones · {masteredDistrictsCount}/8 Districts Overclocked
+                {masteryCompleted}/{masteryTotal} · {masteredDistrictsCount}/8 ({tm.masteryCardSubtext})
               </div>
             </div>
           </div>

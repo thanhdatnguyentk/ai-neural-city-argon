@@ -1032,10 +1032,10 @@ function NeuralCitySandboxApp() {
                     >
                       <div className="flex items-center justify-between font-mono text-[10px] uppercase">
                         <span className="font-bold text-cyan-400">
-                          Pipeline Architecture Mode
+                          {t.ui.pipelineModeTitle}
                         </span>
                         <span className="rounded bg-cyan-500/20 px-1.5 py-0.5 text-[9px] font-bold text-cyan-300">
-                          D1–D8 Canonical
+                          {t.ui.canonicalBadge}
                         </span>
                       </div>
                       <div
@@ -1064,7 +1064,7 @@ function NeuralCitySandboxApp() {
                                   : 'bg-white text-slate-700 hover:text-slate-950'
                               }`}
                             >
-                              {m.shortLabel}
+                              {t.pipelineModes[m.id]?.shortLabel || m.shortLabel}
                             </button>
                           );
                         })}
@@ -1105,7 +1105,8 @@ function NeuralCitySandboxApp() {
                             color: activeWorkloadObj.particleColorHex,
                           }}
                         >
-                          {activeWorkloadObj.shortBadge}
+                          {t.workloads[activeWorkloadObj.id]?.shortBadge ||
+                            activeWorkloadObj.shortBadge}
                         </span>
                       </div>
                       <div className="mt-1.5 grid grid-cols-2 gap-1">
@@ -1125,7 +1126,7 @@ function NeuralCitySandboxApp() {
                                   : 'bg-slate-200 text-slate-700 hover:text-slate-950'
                               }`}
                             >
-                              {preset.shortBadge}
+                              {t.workloads[preset.id]?.shortBadge || preset.shortBadge}
                             </button>
                           );
                         })}
@@ -1162,7 +1163,8 @@ function NeuralCitySandboxApp() {
                           {t.hero.chaosLabel}
                         </span>
                         <span className="text-[9px] text-slate-400">
-                          {activeBottleneckObj.shortLabel}
+                          {t.bottlenecks[activeBottleneckObj.id]?.shortLabel ||
+                            activeBottleneckObj.shortLabel}
                         </span>
                       </div>
                       <div className="mt-1.5 flex flex-wrap gap-1">
@@ -1184,7 +1186,7 @@ function NeuralCitySandboxApp() {
                                   : 'bg-slate-200 text-slate-700'
                               }`}
                             >
-                              {scen.shortLabel}
+                              {t.bottlenecks[scen.id]?.shortLabel || scen.shortLabel}
                             </button>
                           );
                         })}
@@ -1258,18 +1260,20 @@ function NeuralCitySandboxApp() {
                               aria-hidden="true"
                               className="h-3.5 w-3.5 text-rose-400 shrink-0"
                             />
-                            {activeBottleneckObj.title}
+                            {t.bottlenecks[activeBottleneckObj.id]?.title ||
+                              activeBottleneckObj.title}
                           </span>
                           <button
                             type="button"
                             onClick={() => setActiveBottleneck('none')}
                             className="font-mono text-[10px] text-rose-300 hover:text-white cursor-pointer"
                           >
-                            Clear
+                            {t.ui.clearBtn}
                           </button>
                         </div>
                         <p className="mt-1 text-[11px] leading-relaxed text-rose-100/90">
-                          {activeBottleneckObj.diagnosticMessage}
+                          {t.bottlenecks[activeBottleneckObj.id]?.diagnosticMessage ||
+                            activeBottleneckObj.diagnosticMessage}
                         </p>
                         <button
                           type="button"
@@ -1282,7 +1286,12 @@ function NeuralCitySandboxApp() {
                           className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-400 px-3 py-1.5 font-mono text-[11px] font-bold text-slate-950 hover:bg-amber-300 transition-colors cursor-pointer"
                         >
                           <Wrench aria-hidden="true" className="h-3.5 w-3.5" />
-                          <span>[{activeBottleneckObj.fixButtonLabel} →]</span>
+                          <span>
+                            [
+                            {t.bottlenecks[activeBottleneckObj.id]?.fixButtonLabel ||
+                              activeBottleneckObj.fixButtonLabel}{' '}
+                            →]
+                          </span>
                         </button>
                       </motion.div>
                     )}
@@ -1340,7 +1349,7 @@ function NeuralCitySandboxApp() {
                           onClick={() => setDemoStepIndex(null)}
                           className="font-mono text-[10px] text-slate-400 hover:text-white cursor-pointer"
                         >
-                          Stop
+                          {t.ui.stopBtn}
                         </button>
                       </div>
                       <p className="mt-1.5 text-xs leading-relaxed text-slate-200">
@@ -1704,7 +1713,7 @@ function NeuralCitySandboxApp() {
                   : ''
               }`}
             >
-              Shortcuts: [1–8] Select District
+              {t.ui.footer.shortcutDistrict}
             </span>
             <span
               className={`rounded px-1.5 py-0.5 transition-all ${
@@ -1713,7 +1722,7 @@ function NeuralCitySandboxApp() {
                   : ''
               }`}
             >
-              [G] Tycoon Mode · [T] Tech Tree
+              {t.ui.footer.shortcutTycoon}
             </span>
             <span
               className={`rounded px-1.5 py-0.5 transition-all ${
@@ -1722,7 +1731,7 @@ function NeuralCitySandboxApp() {
                   : ''
               }`}
             >
-              [L] District Micro-Lab
+              {t.ui.footer.shortcutLab}
             </span>
             <span
               className={`rounded px-1.5 py-0.5 transition-all ${
@@ -1731,7 +1740,7 @@ function NeuralCitySandboxApp() {
                   : ''
               }`}
             >
-              [V] A/B Battle Arena
+              {t.ui.footer.shortcutBattle}
             </span>
             <span
               className={`rounded px-1.5 py-0.5 transition-all ${
@@ -1740,7 +1749,7 @@ function NeuralCitySandboxApp() {
                   : ''
               }`}
             >
-              [B] Blueprint X-Ray
+              {t.ui.footer.shortcutBlueprint}
             </span>
             <span
               className={`rounded px-1.5 py-0.5 transition-all ${
@@ -1749,7 +1758,7 @@ function NeuralCitySandboxApp() {
                   : ''
               }`}
             >
-              [R] Reset Camera
+              {t.ui.footer.shortcutReset}
             </span>
             <span
               className={`rounded px-1.5 py-0.5 transition-all ${
@@ -1758,7 +1767,7 @@ function NeuralCitySandboxApp() {
                   : ''
               }`}
             >
-              [Esc] Close Panel
+              {t.ui.footer.shortcutClose}
             </span>
           </div>
         </div>

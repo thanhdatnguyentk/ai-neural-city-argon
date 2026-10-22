@@ -19,6 +19,7 @@ import {
   DistrictId,
 } from '@/data/districts';
 import type { ProgressStats } from '@/hooks/useRoadmapProgress';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface DistrictInfoPanelProps {
   district: DistrictData | null;
@@ -41,8 +42,10 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
   onSelectDistrict,
   onOpenDeepDiveDrawer,
 }) => {
+  const { t } = useLanguage();
   if (!district) return null;
 
+  const locDistrict = t.districts[district.id];
   const currentIndex = DISTRICTS.findIndex((d) => d.id === district.id);
   const prevDistrict =
     DISTRICTS[(currentIndex - 1 + DISTRICTS.length) % DISTRICTS.length];
@@ -56,7 +59,7 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
         animate={{ opacity: 1, x: 0, scale: 1 }}
         exit={{ opacity: 0, x: 24, scale: 0.98 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
-        aria-label={`${district.name} details`}
+        aria-label={`${locDistrict?.name || district.name} details`}
         onWheel={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
         className={`pointer-events-auto w-full max-w-[390px] rounded-2xl p-4 sm:p-5 transition-colors ${
@@ -87,7 +90,7 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
                   isNight ? 'text-slate-400' : 'text-slate-600'
                 }`}
               >
-                NODE 0{currentIndex + 1}/0{DISTRICTS.length}
+                D{currentIndex + 1}/D{DISTRICTS.length}
               </span>
             </div>
             <h2 className="mt-2 text-lg sm:text-xl font-bold tracking-tight flex items-center gap-2">
@@ -99,14 +102,14 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
                   boxShadow: `0 0 10px ${district.accentColor}`,
                 }}
               />
-              {district.name}
+              {locDistrict?.name || district.name}
             </h2>
             <p
               className={`mt-0.5 text-xs ${
                 isNight ? 'text-slate-300' : 'text-slate-600'
               }`}
             >
-              {district.tagline}
+              {locDistrict?.tagline || district.tagline}
             </p>
           </div>
 
@@ -138,7 +141,7 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
                 isNight ? 'text-slate-400' : 'text-slate-600'
               }`}
             >
-              Throughput
+              {t.ui.districtPanel.throughput}
             </span>
             <span
               className={`font-semibold ${
@@ -154,7 +157,7 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
                 isNight ? 'text-slate-400' : 'text-slate-600'
               }`}
             >
-              Capacity
+              {t.ui.districtPanel.capacity}
             </span>
             <span className="font-semibold">{district.metrics.activeUnits}</span>
           </div>
@@ -164,7 +167,7 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
                 isNight ? 'text-slate-400' : 'text-slate-600'
               }`}
             >
-              Load
+              {t.ui.districtPanel.load}
             </span>
             <span
               className={`font-semibold ${
@@ -185,14 +188,14 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
               }`}
             >
               <Cpu aria-hidden="true" className="h-3.5 w-3.5" />
-              Role in the AI Pipeline
+              {t.ui.districtPanel.roleHeading}
             </h3>
             <p
               className={`mt-1 ${
                 isNight ? 'text-slate-200' : 'text-slate-700'
               }`}
             >
-              {district.roleInPipeline}
+              {locDistrict?.roleInPipeline || district.roleInPipeline}
             </p>
           </div>
 
@@ -209,10 +212,11 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
               }`}
             >
               <BookOpen aria-hidden="true" className="h-3.5 w-3.5" />
-              In Plain Language · {district.technicalTerm.term}
+              {t.ui.districtPanel.plainLanguageHeading} · {district.technicalTerm.term}
             </div>
             <p className="mt-1 text-[11px] leading-relaxed">
-              {district.plainLanguageExplanation}
+              {locDistrict?.plainLanguageExplanation ||
+                district.plainLanguageExplanation}
             </p>
           </div>
         </div>
@@ -231,7 +235,7 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
                 isNight ? 'text-cyan-400' : 'text-cyan-700'
               }`}
             >
-              Example Input
+              {t.ui.districtPanel.exampleInput}
             </span>
             <p
               className={`mt-0.5 font-mono text-[11px] break-words ${
@@ -254,7 +258,7 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
                 isNight ? 'text-violet-400' : 'text-violet-700'
               }`}
             >
-              Example Output
+              {t.ui.districtPanel.exampleOutput}
             </span>
             <p
               className={`mt-0.5 font-mono text-[11px] break-words ${
@@ -273,11 +277,12 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
               isNight ? 'text-slate-400' : 'text-slate-600'
             }`}
           >
-            Routes to:
+            {t.ui.districtPanel.routesTo}
           </span>
           {district.connectsTo.length > 0 ? (
             district.connectsTo.map((targetId) => {
               const target = DISTRICT_MAP[targetId];
+              const locTarget = t.districts[targetId];
               return (
                 <button
                   key={targetId}
@@ -289,7 +294,7 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
                       : 'border-cyan-600/30 bg-cyan-50 text-cyan-800 hover:bg-cyan-100'
                   }`}
                 >
-                  {target.shortName}
+                  {locTarget?.shortName || target.shortName}
                   <ArrowRight aria-hidden="true" className="h-2.5 w-2.5" />
                 </button>
               );
@@ -300,7 +305,7 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
                 isNight ? 'text-amber-400' : 'text-amber-700'
               }`}
             >
-              Final User Delivery
+              {t.ui.districtPanel.finalDelivery}
             </span>
           )}
         </div>
@@ -315,7 +320,7 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
             >
               <span className="inline-flex items-center gap-1.5">
                 <Layers aria-hidden="true" className="h-4 w-4 shrink-0" />
-                <span>Explore Zero-to-Hero Roadmap &amp; Landmarks [Enter]</span>
+                <span>{t.ui.districtPanel.exploreRoadmapBtn}</span>
               </span>
               {districtProgress && (
                 <span className="rounded-md bg-slate-950/20 px-1.5 py-0.5 text-[10px]">
@@ -345,35 +350,44 @@ export const DistrictInfoPanel: React.FC<DistrictInfoPanelProps> = ({
             }`}
           >
             <Share2 aria-hidden="true" className="h-3.5 w-3.5" />
-            {isFlowHighlighted ? 'Showing Data Flow' : 'Show data flow'}
+            {isFlowHighlighted
+              ? t.ui.districtPanel.showingDataFlow
+              : t.ui.districtPanel.showDataFlow}
           </button>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => onSelectDistrict(prevDistrict.id)}
-              title={`Previous: ${prevDistrict.name}`}
-              aria-label={`Previous district: ${prevDistrict.name}`}
-              className={`rounded-xl border p-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+              title={`${t.ui.districtPanel.prev}: ${t.districts[prevDistrict.id]?.name || prevDistrict.name}`}
+              aria-label={`Select previous district: ${prevDistrict.name}`}
+              className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-2 font-mono text-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                 isNight
-                  ? 'border-slate-700/80 bg-slate-900/80 text-slate-300 hover:border-cyan-400 hover:text-white'
+                  ? 'border-slate-700 bg-slate-900/80 text-slate-300 hover:border-cyan-400 hover:text-white'
                   : 'border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+              <ChevronLeft aria-hidden="true" className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only">
+                {t.ui.districtPanel.prev}
+              </span>
             </button>
+
             <button
               type="button"
               onClick={() => onSelectDistrict(nextDistrict.id)}
-              title={`Next: ${nextDistrict.name}`}
-              aria-label={`Next district: ${nextDistrict.name}`}
-              className={`rounded-xl border p-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+              title={`${t.ui.districtPanel.next}: ${t.districts[nextDistrict.id]?.name || nextDistrict.name}`}
+              aria-label={`Select next district: ${nextDistrict.name}`}
+              className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-2 font-mono text-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                 isNight
-                  ? 'border-slate-700/80 bg-slate-900/80 text-slate-300 hover:border-cyan-400 hover:text-white'
+                  ? 'border-slate-700 bg-slate-900/80 text-slate-300 hover:border-cyan-400 hover:text-white'
                   : 'border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              <ChevronRight aria-hidden="true" className="h-4 w-4" />
+              <span className="sr-only sm:not-sr-only">
+                {t.ui.districtPanel.next}
+              </span>
+              <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>

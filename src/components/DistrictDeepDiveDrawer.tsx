@@ -304,7 +304,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                 }`}
               >
                 <ChevronLeft aria-hidden="true" className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Prev</span>
+                <span className="hidden sm:inline">{t.ui.districtPanel.prev}</span>
               </button>
 
               <button
@@ -318,7 +318,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                     : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
                 }`}
               >
-                <span className="hidden sm:inline">Next</span>
+                <span className="hidden sm:inline">{t.ui.districtPanel.next}</span>
                 <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
 
@@ -400,7 +400,11 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                 }`}
               >
                 <Share2 aria-hidden="true" className="h-3 w-3" />
-                <span>{isFlowHighlighted ? 'Flow Active' : 'Data Flow'}</span>
+                <span>
+                  {isFlowHighlighted
+                    ? t.ui.districtPanel.showingDataFlow
+                    : t.ui.districtPanel.showDataFlow}
+                </span>
               </button>
             </div>
           </div>
@@ -421,12 +425,12 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                   style={{ color: deepDive.accentColorHex }}
                 />
                 <span>
-                  District Mastery: {districtProgress.completed}/
+                  {t.ui.districtPanel.districtMastery}: {districtProgress.completed}/
                   {districtProgress.total} ({districtProgress.percentage}%)
                 </span>
               </span>
               <span className={isNight ? 'text-slate-400' : 'text-slate-600'}>
-                City Total: {cityMastery.completed}/{cityMastery.total} (
+                {t.ui.districtPanel.cityTotal}: {cityMastery.completed}/{cityMastery.total} (
                 {cityMastery.percentage}%)
               </span>
             </div>
@@ -476,7 +480,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
               }`}
             >
               <Layers aria-hidden="true" className="h-3 w-3 shrink-0" />
-              <span className="truncate">01 · Roadmap</span>
+              <span className="truncate">{t.ui.districtPanel.tabRoadmap}</span>
             </button>
 
             <button
@@ -494,7 +498,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
             >
               <Sparkles aria-hidden="true" className="h-3 w-3 shrink-0" />
               <span className="truncate">
-                02 · Landmarks ({sortedLandmarks.length})
+                {t.ui.districtPanel.tabLandmarks} ({sortedLandmarks.length})
               </span>
             </button>
 
@@ -512,7 +516,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
               }`}
             >
               <HelpCircle aria-hidden="true" className="h-3 w-3 shrink-0" />
-              <span className="truncate">03 · Verify Quiz</span>
+              <span className="truncate">{t.ui.districtPanel.tabQuiz}</span>
             </button>
 
             <button
@@ -531,7 +535,7 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
               }`}
             >
               <Sliders aria-hidden="true" className="h-3 w-3 shrink-0" />
-              <span className="truncate">04 · VRAM Lab</span>
+              <span className="truncate">{t.ui.districtPanel.tabVram}</span>
             </button>
           </div>
         </div>

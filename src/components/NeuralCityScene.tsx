@@ -28,6 +28,7 @@ import {
 } from '@/data/bottleneck-scenarios';
 import { ARCHITECTURAL_MODE_MAP } from '@/data/pipeline-modes';
 import type { ArchitecturalPipelineModeId } from '@/types/pipeline-modes';
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface NeuralCitySceneProps {
   selectedDistrict: DistrictId | null;
@@ -309,6 +310,7 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
     onHoverDistrict,
   } = props;
 
+  const { t } = useLanguage();
   const modeSpec =
     ARCHITECTURAL_MODE_MAP[activePipelineMode] ||
     ARCHITECTURAL_MODE_MAP['online-inference'];
@@ -537,7 +539,8 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
           {DISTRICTS.map((district, index) => {
             const isStandbyInMode = modeSpec.standbyDistricts.includes(district.id);
             const standbyBadgeText = isStandbyInMode
-              ? modeSpec.standbyBadgeText
+              ? t.pipelineModes[activePipelineMode]?.standbyBadgeText ||
+                modeSpec.standbyBadgeText
               : null;
             const isPipelineHighlighted =
               activePipelineStage !== null &&
