@@ -1,11 +1,11 @@
 export type DistrictId =
   | 'input-gateway'
   | 'data-lake'
-  | 'computer-vision'
-  | 'nlp-district'
   | 'training-cluster'
   | 'model-core'
   | 'inference-center'
+  | 'nlp-district'
+  | 'computer-vision'
   | 'output-terminal';
 
 export type PipelineStageId =
@@ -14,6 +14,8 @@ export type PipelineStageId =
   | 'training'
   | 'model-core'
   | 'inference'
+  | 'agentic-mcp'
+  | 'guardrails-eval'
   | 'output';
 
 export interface DistrictData {
@@ -77,63 +79,70 @@ export interface PipelineStep {
 }
 
 export const DISTRICTS: DistrictData[] = [
+  // D1: Ingress & Multimodal Gateway
   {
     id: 'input-gateway',
-    name: 'Input Gateway',
-    shortName: 'Input',
+    name: 'Ingress & Multimodal Gateway',
+    shortName: 'D1 · Ingress',
     pipelineStage: 'input',
     category: 'data',
-    tagline: 'Receives text, images, video, or other data.',
-    shortDescription: 'Receives raw prompts, images, audio, and sensor streams entering the AI system.',
+    tagline: 'API termination, BPE tokenization, ViT 16×16 patchification & OCR/ASR.',
+    shortDescription:
+      'Terminates gRPC/HTTP2 requests, validates Pydantic v2 schemas, and encodes UTF-8 text + RGB tensors.',
     roleInPipeline:
-      'Acts as the city port of entry. Every user prompt, uploaded photograph, video frame, or document passes through security checks and format normalization here before entering the pipeline.',
+      'Acts as the high-throughput ingress boundary. Validates schemas, splits text into subword token IDs via Tiktoken BPE, and projects 1024×1024 images into 16×16 Vision Transformer patch tensors.',
     plainLanguageExplanation:
-      'Think of the Input Gateway as an international airport terminal for information. Raw data arrives in many formats—spoken words, typed questions, or camera photos—and gets checked, cleaned, and tagged so the rest of the city can understand it.',
+      'Input: Raw RGB [B, 3, 1024, 1024] + UTF-8 String → Output: Patch Tensor [B, 256, 1152] (FP16) + Token IDs [B, L] (int32) via gRPC Protobuf.',
     technicalTerm: {
-      term: 'Ingestion & Normalization',
+      term: 'BPE Tokenization & ViT Linear Patch Projection',
       definition:
-        'Converting raw inputs (like differently sized images or messy text) into clean, standardized digital formats ready for processing.',
+        'Input: Raw RGB [B, 3, 1024, 1024] + UTF-8 String → Output: Patch Tensor [B, 256, 1152] (FP16) + Token IDs [B, L] (int32) via gRPC Protobuf.',
     },
-    exampleInput: 'User prompt: "Identify the bird in this photo and explain its habitat" + 4K JPEG image',
-    exampleOutput: 'Normalized UTF-8 text stream + 224×224 RGB pixel tensor packet',
-    statusText: 'RECEIVING STREAMS',
+    exampleInput:
+      'POST /v1/chat/multimodal: Raw RGB [1, 3, 1024, 1024] + UTF-8 prompt',
+    exampleOutput:
+      'Patch Tensor [1, 256, 1152] (FP16) + BPE Token IDs [1, 48] (int32)',
+    statusText: 'INGRESS ACTIVE',
     statusLevel: 'optimal',
     metrics: {
       throughput: '14.2 GB/s',
-      activeUnits: '64 Intake Gates',
+      activeUnits: '64 gRPC Workers',
       utilization: 78,
     },
     position: [-10, 0, 8],
     footprint: [4.8, 4.8],
     accentColor: '#00F0FF',
     secondaryColor: '#38BDF8',
-    connectsTo: ['data-lake'],
+    connectsTo: ['data-lake', 'computer-vision', 'nlp-district'],
     receivesFrom: [],
   },
+
+  // D2: Data Lake & Vector Vault
   {
     id: 'data-lake',
-    name: 'Data Lake',
-    shortName: 'Data Lake',
+    name: 'Data Lake & Vector Vault',
+    shortName: 'D2 · Vector Vault',
     pipelineStage: 'data-lake',
     category: 'data',
-    tagline: 'Stores and organizes incoming data.',
-    shortDescription: 'Stores, indexes, and organizes incoming data into structured reservoirs.',
+    tagline: 'Unstructured lakehouse storage, dense embeddings, HNSW graph + BM25.',
+    shortDescription:
+      'Stores Parquet training shards and serves sub-10ms HNSW + BM25 hybrid retrieval.',
     roleInPipeline:
-      'Catalogs raw inputs into high-speed reservoirs, removes duplicates, balances datasets, and routes visual data to Computer Vision and text data to the NLP District.',
+      'Provides dual-plane storage: serves online Hybrid RAG context chunks via Milvus/FAISS HNSW + Elasticsearch BM25 Reciprocal Rank Fusion, and feeds Parquet shards to D3 during offline training.',
     plainLanguageExplanation:
-      'The Data Lake is a massive automated library and water treatment plant combined. It stores billions of examples, filters out noise or broken data, and organizes everything neatly on digital shelves so specialized districts can fetch what they need in milliseconds.',
+      'Query: Normalized Embedding [1, 1152] (FP16) → Index: HNSW (M=16, ef=64) + Inverted BM25 → Output: Top-K Context Chunks (Cosine > 0.82).',
     technicalTerm: {
-      term: 'Vector Indexing & Sharding',
+      term: 'HNSW Graph Traversal & Reciprocal Rank Fusion (RRF)',
       definition:
-        'Organizing massive datasets into searchable mathematical catalogs and splitting them across many storage tanks for instant retrieval.',
+        'Query: Normalized Embedding [1, 1152] (FP16) → Index: HNSW (M=16, ef=64) + Inverted BM25 → Output: Top-K Context Chunks (Cosine > 0.82).',
     },
-    exampleInput: 'Unorganized stream of millions of images, articles, and user queries',
-    exampleOutput: 'Curated, deduplicated training batches & indexed modality streams',
-    statusText: 'INDEXING ACTIVE',
+    exampleInput: 'Normalized Query Vector [1, 1152] (FP16) + Lexical Filter',
+    exampleOutput: 'Top-K Grounded Context Passages (Recall@10: 94.8% in 6.4ms)',
+    statusText: 'HNSW INDEX READY',
     statusLevel: 'optimal',
     metrics: {
-      throughput: '28.6 GB/s',
-      activeUnits: '128 Storage Silos',
+      throughput: '6.4 ms HNSW',
+      activeUnits: '128 Vector Shards',
       utilization: 84,
     },
     position: [-8, 0, -2],
@@ -143,96 +152,33 @@ export const DISTRICTS: DistrictData[] = [
     connectsTo: ['computer-vision', 'nlp-district', 'training-cluster'],
     receivesFrom: ['input-gateway'],
   },
-  {
-    id: 'computer-vision',
-    name: 'Computer Vision District',
-    shortName: 'Vision (CV)',
-    pipelineStage: 'training',
-    category: 'modality',
-    tagline: 'Analyzes visual information.',
-    shortDescription: 'Extracts edges, shapes, objects, and spatial context from images and video.',
-    roleInPipeline:
-      'Breaks visual data into pixel grids and passes them through layered optical filters to detect edges, textures, objects, and scenes before feeding visual embeddings to the Training Cluster and Model Core.',
-    plainLanguageExplanation:
-      'This district works like the human visual cortex. Instead of seeing a photo all at once, its scanner towers first spot simple lines and colors, then combine them into shapes like feathers or beaks, and finally recognize complete objects.',
-    technicalTerm: {
-      term: 'Convolutional Feature Maps',
-      definition:
-        'Layered visual filters that scan across an image to highlight important patterns like edges, textures, and recognizable objects.',
-    },
-    exampleInput: '224×224 RGB image matrix of a perched kingfisher bird',
-    exampleOutput: 'Spatial feature map: [Beak: 0.98, Cyan Plumage: 0.96, Branch: 0.91]',
-    statusText: 'SCANNING FRAMES',
-    statusLevel: 'active',
-    metrics: {
-      throughput: '9,400 FPS',
-      activeUnits: '96 Optical Arrays',
-      utilization: 72,
-    },
-    position: [-2.5, 0, -9.5],
-    footprint: [4.8, 4.8],
-    accentColor: '#38BDF8',
-    secondaryColor: '#8B5CF6',
-    connectsTo: ['training-cluster', 'model-core'],
-    receivesFrom: ['data-lake'],
-  },
-  {
-    id: 'nlp-district',
-    name: 'NLP District',
-    shortName: 'NLP District',
-    pipelineStage: 'training',
-    category: 'modality',
-    tagline: 'Processes language and text.',
-    shortDescription: 'Splits language into tokens and maps meaning, grammar, and context.',
-    roleInPipeline:
-      'Transforms human language into numerical token embeddings and calculates attention relationships between words so the system understands nuance, intent, and context.',
-    plainLanguageExplanation:
-      'Computers cannot read words directly—they only understand numbers. The NLP (Natural Language Processing) District chops sentences into word pieces called "tokens" and gives each piece coordinates on a map of meaning, placing related words like "bird" and "habitat" close together.',
-    technicalTerm: {
-      term: 'Tokenization & Embeddings',
-      definition:
-        'Breaking text into small word fragments (tokens) and converting each fragment into a list of numbers that captures its meaning.',
-    },
-    exampleInput: 'Raw text: "Identify the bird in this photo and explain its habitat"',
-    exampleOutput: 'Token sequence [1402, 279, 7194, ...] + 4096-dim semantic vectors',
-    statusText: 'PARSING TOKENS',
-    statusLevel: 'active',
-    metrics: {
-      throughput: '1.8M tok/s',
-      activeUnits: '112 Transformer Spires',
-      utilization: 81,
-    },
-    position: [-1.5, 0, 9.5],
-    footprint: [4.8, 4.8],
-    accentColor: '#38BDF8',
-    secondaryColor: '#A855F7',
-    connectsTo: ['training-cluster', 'model-core'],
-    receivesFrom: ['data-lake'],
-  },
+
+  // D3: Training Foundry
   {
     id: 'training-cluster',
-    name: 'Training Cluster',
-    shortName: 'Training',
+    name: 'Training Foundry',
+    shortName: 'D3 · Training',
     pipelineStage: 'training',
     category: 'compute',
-    tagline: 'A group of GPU towers that train AI models.',
-    shortDescription: 'High-density GPU towers running parallel matrix math to teach the model.',
+    tagline: 'Distributed pre-training, SFT, QLoRA, and DPO/GRPO alignment.',
+    shortDescription:
+      'Offline multi-node GPU cluster executing FSDP/ZeRO-3 forward/backward passes (Standby during Online Serving).',
     roleInPipeline:
-      'Runs trillions of parallel calculations across synchronized GPU towers, comparing predictions against ground-truth data and adjusting neural weights via backpropagation.',
+      'Offline compute powerhouse. Partitions parameters, gradients, and FP32 Adam states across H100 nodes via FSDP ZeRO-3 and publishes verified checkpoints to D4 Model Core. Explicitly offline during real-time user inference.',
     plainLanguageExplanation:
-      'The Training Cluster is the city’s powerhouse gymnasium. Thousands of specialized graphics processors (GPUs) work side by side, practicing on millions of examples. Every time the AI makes a mistake during practice, this cluster sends a correction signal to tune the brain.',
+      'Sharding: FSDP ZeRO-3 (Params + Grads + Adam FP32 States partitioned across N GPUs) → Precision: BF16 Forward/Backward.',
     technicalTerm: {
-      term: 'Backpropagation & Gradient Descent',
+      term: 'FSDP ZeRO-3 Sharding & NVLink Collective All-Reduce',
       definition:
-        'The learning loop where the system measures how wrong a guess was and slightly adjusts billions of internal dials (weights) to be more accurate next time.',
+        'Sharding: FSDP ZeRO-3 (Params + Grads + Adam FP32 States partitioned across N GPUs) → Precision: BF16 Forward/Backward.',
     },
-    exampleInput: 'Batched feature vectors + ground-truth labels (Loss: 0.412)',
-    exampleOutput: 'Updated neural weight gradients (Loss reduced to 0.038)',
-    statusText: 'GPU CLUSTER ACTIVE',
+    exampleInput: 'WebDataset Parquet Shards [Global Batch: 4M tokens, BF16]',
+    exampleOutput: 'Sharded Safetensors Checkpoint (MFU: 51.4%, Loss: 1.184)',
+    statusText: 'OFFLINE IN SERVING MODE',
     statusLevel: 'high-load',
     metrics: {
-      throughput: '420 PFLOPS',
-      activeUnits: '512 H100 Tensor Nodes',
+      throughput: '51.4% MFU',
+      activeUnits: '64× H100 ZeRO-3',
       utilization: 94,
     },
     position: [5.5, 0, -8.5],
@@ -242,30 +188,33 @@ export const DISTRICTS: DistrictData[] = [
     connectsTo: ['model-core'],
     receivesFrom: ['data-lake', 'computer-vision', 'nlp-district'],
   },
+
+  // D4: Model Core & Registry
   {
     id: 'model-core',
-    name: 'Model Core',
-    shortName: 'Model Core',
+    name: 'Model Core & Registry',
+    shortName: 'D4 · Model Core',
     pipelineStage: 'model-core',
     category: 'neural',
-    tagline: 'The central neural network that connects the system.',
-    shortDescription: 'The central multi-layered neural network connecting every specialized district.',
+    tagline: 'Foundation model backbones (Transformer/MoE, CLIP/SigLIP) & frozen weights.',
+    shortDescription:
+      'Houses versioned Safetensors weights, GQA/RoPE/SwiGLU Transformer blocks, and Sparse MoE routers.',
     roleInPipeline:
-      'Houses the unified foundation model—billions of learned parameters arranged in deep attention layers that fuse vision, language, and reasoning into coherent intelligence.',
+      'Central neural registry holding immutable, version-locked foundation backbones (GQA, RoPE, SwiGLU, FlashAttention-2, Sparse MoE). Supplies frozen weights to D5 Inference Engine and receives checkpoints from D3.',
     plainLanguageExplanation:
-      'At the heart of the city sits the Model Core: a glowing, interconnected web of digital neurons. It combines what the Vision District sees with what the NLP District reads, drawing on knowledge learned in the Training Cluster to reason through complex problems.',
+      'Backbone: GQA (8 KV heads, 32 Q heads) + RoPE (theta=1e6) + SwiGLU FFN + FlashAttention-2 IO-Aware Tiling.',
     technicalTerm: {
-      term: 'Multi-Head Self-Attention Network',
+      term: 'Grouped-Query Attention (GQA) & Sparse MoE Top-K Routing',
       definition:
-        'A neural architecture that connects different pieces of information simultaneously—linking a word in a question to a specific region of an image.',
+        'Backbone: GQA (8 KV heads, 32 Q heads) + RoPE (theta=1e6) + SwiGLU FFN + FlashAttention-2 IO-Aware Tiling.',
     },
-    exampleInput: 'Fused visual embeddings + text tokens + trained parameter weights',
-    exampleOutput: 'Contextualized latent representation & reasoning graph',
-    statusText: 'SYNAPSES SYNCHRONIZED',
+    exampleInput: 'Fused Multimodal Tokens [B, L, 4096] + Frozen AWQ Weights',
+    exampleOutput: 'Contextualized Hidden States [B, L, 4096] (FP16/BF16)',
+    statusText: 'WEIGHTS LOCKED',
     statusLevel: 'optimal',
     metrics: {
-      throughput: '175B Params',
-      activeUnits: '96 Deep Attention Layers',
+      throughput: '12.9B Active MoE',
+      activeUnits: '96 GQA Layers',
       utilization: 88,
     },
     position: [0.5, 0, 0],
@@ -275,30 +224,33 @@ export const DISTRICTS: DistrictData[] = [
     connectsTo: ['inference-center'],
     receivesFrom: ['training-cluster', 'computer-vision', 'nlp-district'],
   },
+
+  // D5: Inference Engine
   {
     id: 'inference-center',
-    name: 'Inference Center',
-    shortName: 'Inference',
+    name: 'Inference Engine',
+    shortName: 'D5 · Inference',
     pipelineStage: 'inference',
     category: 'neural',
-    tagline: 'Runs a trained model to produce a prediction or response.',
-    shortDescription: 'Executes the trained neural model at ultra-low latency to generate answers.',
+    tagline: 'Low-latency prefill/decode execution, PagedAttention KV-cache & quantization.',
+    shortDescription:
+      'Executes compute-bound prefill and HBM-bandwidth-bound decode via vLLM and Triton Server.',
     roleInPipeline:
-      'Takes the active representation from the Model Core and runs fast forward-pass decoding to predict the most accurate classification, action, or next-token sequence.',
+      'Executes real-time forward passes using frozen weights from D4. Separates compute-bound O(L²) prefill from memory-bandwidth-bound O(L) decode using non-contiguous vLLM PagedAttention KV blocks.',
     plainLanguageExplanation:
-      'While Training is like studying for an exam, Inference is taking the test in real time. Once the Model Core understands your request, the Inference Center rapidly calculates probabilities and selects the best words or predictions in milliseconds.',
+      'Prefill: Compute-Bound O(L^2) Matrix-Matrix | Decode: Memory-BW-Bound O(L) Matrix-Vector | KV Block Size: 16 tokens (PagedAttention).',
     technicalTerm: {
-      term: 'Autoregressive Decoding & KV Cache',
+      term: 'vLLM PagedAttention & Continuous Iteration-Level Batching',
       definition:
-        'Generating a response one word or prediction at a time by calculating probabilities and caching recent steps for near-instant speed.',
+        'Prefill: Compute-Bound O(L^2) Matrix-Matrix | Decode: Memory-BW-Bound O(L) Matrix-Vector | KV Block Size: 16 tokens (PagedAttention).',
     },
-    exampleInput: 'Latent reasoning state from Model Core',
-    exampleOutput: 'Ranked prediction: "Common Kingfisher (Alcedo atthis) — 99.2% confidence" + habitat synthesis',
+    exampleInput: 'Grounded Prompt Context [B, 2048] + Paged KV-Cache Pointers',
+    exampleOutput: 'Logit Stream at TTFT 46.8ms · TPOT 11.4ms/tok (88 tok/s)',
     statusText: 'LOW-LATENCY SERVING',
     statusLevel: 'optimal',
     metrics: {
-      throughput: '11.4 ms/tok',
-      activeUnits: '144 Inference Pods',
+      throughput: '11.4 ms/tok TPOT',
+      activeUnits: '144 vLLM Pods',
       utilization: 76,
     },
     position: [8.5, 0, -1],
@@ -308,30 +260,105 @@ export const DISTRICTS: DistrictData[] = [
     connectsTo: ['output-terminal'],
     receivesFrom: ['model-core'],
   },
+
+  // D6: Agentic & MCP Orchestrator
+  {
+    id: 'nlp-district',
+    name: 'Agentic & MCP Orchestrator',
+    shortName: 'D6 · Agentic MCP',
+    pipelineStage: 'agentic-mcp',
+    category: 'modality',
+    tagline: 'Multi-step ReAct planning, MCP JSON-RPC 2.0 tool routing & working memory.',
+    shortDescription:
+      'Coordinates cyclic LangGraph state machines, tool execution, and Model Context Protocol (MCP) buses.',
+    roleInPipeline:
+      'Decomposes complex user intents into cyclic Thought → Action → Observation loops, invoking external vector stores and SQL/code tools over standardized MCP JSON-RPC 2.0 channels.',
+    plainLanguageExplanation:
+      'Protocol: MCP JSON-RPC 2.0 over stdio/SSE | Loop: Thought -> Action (Tool Call) -> Observation -> Grounded Synthesis.',
+    technicalTerm: {
+      term: 'Model Context Protocol (MCP) & Cyclic ReAct Graphs',
+      definition:
+        'Protocol: MCP JSON-RPC 2.0 over stdio/SSE | Loop: Thought -> Action (Tool Call) -> Observation -> Grounded Synthesis.',
+    },
+    exampleInput: 'User Intent + Session State Graph + Tool Schemas',
+    exampleOutput: 'JSON-RPC 2.0 Tool Call: query_hybrid_vault(top_k=5)',
+    statusText: 'MCP BUS ACTIVE',
+    statusLevel: 'active',
+    metrics: {
+      throughput: '1.8M tok/s',
+      activeUnits: '112 Agent Workers',
+      utilization: 81,
+    },
+    position: [-1.5, 0, 9.5],
+    footprint: [4.8, 4.8],
+    accentColor: '#38BDF8',
+    secondaryColor: '#A855F7',
+    connectsTo: ['training-cluster', 'model-core'],
+    receivesFrom: ['data-lake'],
+  },
+
+  // D7: Guardrails & Eval Gate
+  {
+    id: 'computer-vision',
+    name: 'Guardrails & Eval Gate',
+    shortName: 'D7 · Guardrails',
+    pipelineStage: 'guardrails-eval',
+    category: 'modality',
+    tagline: 'Input prompt-injection shield, PII redaction & output NLI faithfulness check.',
+    shortDescription:
+      'Enforces sub-4ms input prompt shields and RAGAS atomic claim NLI faithfulness verification.',
+    roleInPipeline:
+      'Operates as the dual-gate security and quality firewall: intercepts adversarial jailbreaks/PII at ingress and verifies generated claims against retrieved D2 context via NLI entailment before egress.',
+    plainLanguageExplanation:
+      'Input Gate: Prompt-Injection Classifier (<4ms) | Output Gate: Decomposed Claim NLI Entailment (Faithfulness >= 0.90).',
+    technicalTerm: {
+      term: 'Dual-Gate NeMo Guardrails & RAGAS Claim Entailment',
+      definition:
+        'Input Gate: Prompt-Injection Classifier (<4ms) | Output Gate: Decomposed Claim NLI Entailment (Faithfulness >= 0.90).',
+    },
+    exampleInput: 'Candidate Response Claims + Retrieved Context Passages',
+    exampleOutput: 'Verified Grounded Stream (RAGAS Faithfulness: 0.96 PASS)',
+    statusText: 'SHIELD & NLI ACTIVE',
+    statusLevel: 'active',
+    metrics: {
+      throughput: '< 4.0 ms Gate',
+      activeUnits: '96 NLI Verifiers',
+      utilization: 72,
+    },
+    position: [-2.5, 0, -9.5],
+    footprint: [4.8, 4.8],
+    accentColor: '#38BDF8',
+    secondaryColor: '#8B55F7',
+    connectsTo: ['training-cluster', 'model-core'],
+    receivesFrom: ['data-lake'],
+  },
+
+  // D8: Output Nexus & Telemetry
   {
     id: 'output-terminal',
-    name: 'Output Terminal',
-    shortName: 'Output',
+    name: 'Output Nexus & Telemetry',
+    shortName: 'D8 · Output & Telemetry',
     pipelineStage: 'output',
     category: 'output',
-    tagline: 'Displays the result to the user.',
-    shortDescription: 'Formats, verifies safety, and streams the final AI response back to the user.',
+    tagline: 'SSE token streaming, semantic caching, OpenTelemetry tracing & data flywheel.',
+    shortDescription:
+      'Streams HTTP/2 SSE tokens, serves 3ms Redis semantic cache hits, and scrapes Prometheus P99 telemetry.',
     roleInPipeline:
-      'Applies final safety guardrails, formats raw probabilities into human-friendly text, visuals, or API payloads, and broadcasts the completed answer to the user interface.',
+      'Delivers detokenized UTF-8 chunks over HTTP/2 Server-Sent Events (SSE), intercepts repeat queries via Redis Semantic Vector Cache, and exports OpenTelemetry GenAI spans to Prometheus/Grafana.',
     plainLanguageExplanation:
-      'The Output Terminal is the broadcast tower that translates the AI’s mathematical conclusions back into clear human language, annotated images, or interactive answers you can read on your screen.',
+      'Egress: HTTP/2 SSE Text-Event-Stream | Telemetry: OpenTelemetry GenAI Spans -> Prometheus TSDB.',
     technicalTerm: {
-      term: 'Detokenization & Response Streaming',
+      term: 'HTTP/2 SSE Streaming & OpenTelemetry GenAI Observability',
       definition:
-        'Converting numerical token IDs back into readable text and streaming them smoothly to the user interface as they are generated.',
+        'Egress: HTTP/2 SSE Text-Event-Stream | Telemetry: OpenTelemetry GenAI Spans -> Prometheus TSDB.',
     },
-    exampleInput: 'Decoded token stream + confidence telemetry from Inference Center',
-    exampleOutput: 'Formatted UI response: "This is a Common Kingfisher, found near calm rivers and wetlands..."',
-    statusText: 'BROADCASTING RESULT',
+    exampleInput: 'Verified Token Stream + Per-Request TTFT/TPOT Metrics',
+    exampleOutput: 'data: {"token":"Kingfisher","ttft_ms":46.8,"ragas":0.96}',
+    statusText: 'SSE STREAMING',
     statusLevel: 'optimal',
     metrics: {
-      throughput: '99.98% Uptime',
-      activeUnits: '48 Dispatch Channels',
+      throughput: '99.98% SLA',
+      activeUnits: '48 SSE Channels',
       utilization: 69,
     },
     position: [9.5, 0, 8.5],
@@ -357,7 +384,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'input-gateway',
     to: 'data-lake',
     type: 'data',
-    label: 'Raw Data Stream',
+    label: 'gRPC Protobuf Ingress',
     waypoints: [
       [-10, 0.35, 8],
       [-10, 0.35, 3],
@@ -370,7 +397,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'data-lake',
     to: 'computer-vision',
     type: 'data',
-    label: 'Image & Video Tensors',
+    label: 'Guardrail & NLI Context',
     waypoints: [
       [-8, 0.35, -2],
       [-8, 0.35, -9.5],
@@ -382,7 +409,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'data-lake',
     to: 'nlp-district',
     type: 'data',
-    label: 'Text Corpus Stream',
+    label: 'MCP Hybrid RAG Chunks',
     waypoints: [
       [-8, 0.35, -2],
       [-5, 0.35, -2],
@@ -395,7 +422,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'data-lake',
     to: 'training-cluster',
     type: 'data',
-    label: 'Training Batches',
+    label: 'Offline Parquet Shards',
     waypoints: [
       [-8, 0.35, -2],
       [-3, 0.35, -5.5],
@@ -408,7 +435,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'computer-vision',
     to: 'training-cluster',
     type: 'neural',
-    label: 'Visual Feature Maps',
+    label: 'Eval Benchmark Feedback',
     waypoints: [
       [-2.5, 0.4, -9.5],
       [1.5, 0.4, -9.5],
@@ -420,7 +447,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'computer-vision',
     to: 'model-core',
     type: 'neural',
-    label: 'Spatial Embeddings',
+    label: 'Verified Guardrail Gate',
     waypoints: [
       [-2.5, 0.4, -9.5],
       [-2.5, 0.4, -4.5],
@@ -433,7 +460,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'nlp-district',
     to: 'training-cluster',
     type: 'neural',
-    label: 'Token Vectors',
+    label: 'RLHF/DPO Trajectory Logs',
     waypoints: [
       [-1.5, 0.4, 9.5],
       [4.5, 0.4, 9.5],
@@ -446,7 +473,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'nlp-district',
     to: 'model-core',
     type: 'neural',
-    label: 'Semantic Attention Vectors',
+    label: 'Agentic MCP State Graph',
     waypoints: [
       [-1.5, 0.4, 9.5],
       [-1.5, 0.4, 4.5],
@@ -459,7 +486,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'training-cluster',
     to: 'model-core',
     type: 'neural',
-    label: 'Updated Neural Weights',
+    label: 'Safetensors Checkpoints',
     waypoints: [
       [5.5, 0.45, -8.5],
       [5.5, 0.45, -3.5],
@@ -472,7 +499,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'model-core',
     to: 'inference-center',
     type: 'neural',
-    label: 'Trained Model State',
+    label: 'Frozen FP8/AWQ Weights',
     waypoints: [
       [0.5, 0.45, 0],
       [4.5, 0.45, 0],
@@ -485,7 +512,7 @@ export const DATA_FLOW_PATHS: DataFlowPath[] = [
     from: 'inference-center',
     to: 'output-terminal',
     type: 'output',
-    label: 'Generated Prediction',
+    label: 'SSE Token Stream',
     waypoints: [
       [8.5, 0.4, -1],
       [8.5, 0.4, 4],
@@ -499,81 +526,114 @@ export const PIPELINE_STEPS: PipelineStep[] = [
   {
     id: 'input',
     stepNumber: 1,
-    label: 'Input',
+    label: 'D1 · Ingress',
     districtId: 'input-gateway',
-    title: '1. Input Gateway — Data Arrives',
-    summary: 'Raw prompts, images, or video streams enter the system and are cleaned into standard formats.',
+    title: 'D1 · Ingress & Multimodal Gateway',
+    summary:
+      'API termination, BPE tokenization, ViT 16×16 patchification, and OCR/ASR normalization.',
     plainExplanation:
-      'Every AI interaction starts with raw information from the outside world—a typed question, a photo, or a voice clip. The Input Gateway checks the data, cleans out formatting errors, and converts it into digital packets.',
-    keyConcept: 'Data Normalization',
-    keyConceptDefinition: 'Making sure all incoming text and images follow a uniform size and format before processing.',
+      'Terminates HTTP/2 and gRPC streams, validates Pydantic v2 schemas, encodes UTF-8 strings into BPE token IDs, and projects 1024×1024 RGB images into 16×16 ViT patch tensors.',
+    keyConcept: 'NETWORK / IOPS-BOUND',
+    keyConceptDefinition:
+      'Input: Raw RGB [B, 3, 1024, 1024] + UTF-8 String -> Output: Patch Tensor [B, 256, 1152] (FP16) + Token IDs [B, L] (int32) via gRPC Protobuf',
   },
   {
     id: 'data-lake',
     stepNumber: 2,
-    label: 'Data Lake',
+    label: 'D2 · Vector Vault',
     districtId: 'data-lake',
-    relatedDistrictIds: ['computer-vision', 'nlp-district'],
-    title: '2. Data Lake & Modality Routing — Organize & Specialize',
-    summary: 'Incoming data is cataloged in the Data Lake and routed to Computer Vision (images) or NLP (text).',
+    title: 'D2 · Data Lake & Vector Vault',
+    summary:
+      'Unstructured lakehouse storage, dense embeddings, HNSW ANN graph + sparse BM25 indexing.',
     plainExplanation:
-      'Once inside the city, data is stored and organized in the Data Lake. From here, visual information flows to the Computer Vision District to detect shapes and objects, while text flows to the NLP District to be broken into meaningful word tokens.',
-    keyConcept: 'Feature Extraction & Tokenization',
+      'Executes sub-10ms Hybrid Retrieval combining HNSW logarithmic graph traversal (efSearch=64) and inverted BM25 lexical search via Reciprocal Rank Fusion (RRF), while storing Parquet shards for offline training.',
+    keyConcept: 'NETWORK / IOPS-BOUND',
     keyConceptDefinition:
-      'Turning raw pixels into visual patterns (Computer Vision) and splitting sentences into numerical word pieces (NLP).',
+      'Query: Normalized Embedding [1, 1152] (FP16) -> Index: HNSW (M=16, ef=64) + Inverted BM25 -> Output: Top-K Context Chunks (Cosine > 0.82)',
   },
   {
     id: 'training',
     stepNumber: 3,
-    label: 'Training',
+    label: 'D3 · Training',
     districtId: 'training-cluster',
-    relatedDistrictIds: ['computer-vision', 'nlp-district'],
-    title: '3. Training Cluster — Learning Patterns',
-    summary: 'Towering GPU clusters run billions of calculations to learn patterns from organized data.',
+    title: 'D3 · Training Foundry (Offline Batch / Standby in Serving)',
+    summary:
+      'Distributed pre-training, SFT, QLoRA, and DPO/GRPO alignment across FSDP ZeRO-3 GPU clusters.',
     plainExplanation:
-      'In the Training Cluster, synchronized GPU towers practice on millions of examples from the Data Lake, Vision, and NLP districts. By repeatedly guessing and correcting mistakes, the cluster discovers deep patterns and tunes the AI’s internal parameters.',
-    keyConcept: 'Neural Weight Optimization',
+      'Executes compute-bound BF16 forward/backward passes and NVLink All-Reduce gradient synchronization during Offline Training. Explicitly placed on Standby during Online Inference.',
+    keyConcept: 'COMPUTE-BOUND (TFLOPs)',
     keyConceptDefinition:
-      'Adjusting billions of mathematical connections inside the model so its predictions become more accurate over time.',
+      'Sharding: FSDP ZeRO-3 (Params + Grads + Adam FP32 States partitioned across N GPUs) -> Precision: BF16 Forward/Backward',
   },
   {
     id: 'model-core',
     stepNumber: 4,
-    label: 'Model Core',
+    label: 'D4 · Model Core',
     districtId: 'model-core',
-    title: '4. Model Core — The Central Neural Network',
-    summary: 'The central neural network fuses knowledge from all districts into unified intelligence.',
+    title: 'D4 · Model Core & Registry',
+    summary:
+      'Foundation model backbones (Transformer/MoE, CLIP/SigLIP) and frozen Safetensors weights.',
     plainExplanation:
-      'The Model Core is the city’s central brain. It holds the trained neural network—layers of interconnected nodes that combine visual understanding, language context, and learned reasoning into a single unified representation.',
-    keyConcept: 'Deep Neural Architecture',
+      'Houses version-locked Safetensors model weights, Grouped-Query Attention (GQA), RoPE positional embeddings, FlashAttention-2 kernels, and Sparse MoE Top-2 routers.',
+    keyConcept: 'MEMORY-BANDWIDTH-BOUND (HBM GB/s)',
     keyConceptDefinition:
-      'Layers of connected artificial neurons that weigh relationships between words, images, and concepts simultaneously.',
+      'Backbone: GQA (8 KV heads, 32 Q heads) + RoPE (theta=1e6) + SwiGLU FFN + FlashAttention-2 IO-Aware Tiling',
   },
   {
     id: 'inference',
     stepNumber: 5,
-    label: 'Inference',
+    label: 'D5 · Inference',
     districtId: 'inference-center',
-    title: '5. Inference Center — Running the Model Live',
-    summary: 'The Inference Center runs the trained model at high speed to generate a prediction or answer.',
+    title: 'D5 · Inference Engine',
+    summary:
+      'Low-latency prefill/decode execution, vLLM PagedAttention KV-cache management, and quantization.',
     plainExplanation:
-      'When you ask a live question, the system doesn’t need to retrain from scratch. Instead, the Inference Center uses the Model Core’s learned knowledge to rapidly calculate probabilities and produce the best answer in milliseconds.',
-    keyConcept: 'Real-Time Forward Pass',
+      'Pulls frozen weights from D4 to execute compute-bound O(L²) prefill and HBM-bandwidth-bound O(L) autoregressive token decoding with zero external KV-cache fragmentation.',
+    keyConcept: 'MEMORY-BANDWIDTH-BOUND (HBM GB/s)',
     keyConceptDefinition:
-      'Passing new input through a trained model to compute an immediate prediction or response without changing the model weights.',
+      'Prefill: Compute-Bound O(L^2) Matrix-Matrix | Decode: Memory-BW-Bound O(L) Matrix-Vector | KV Block Size: 16 tokens (PagedAttention)',
+  },
+  {
+    id: 'agentic-mcp',
+    stepNumber: 6,
+    label: 'D6 · Agentic MCP',
+    districtId: 'nlp-district',
+    title: 'D6 · Agentic & MCP Orchestrator',
+    summary:
+      'Multi-step ReAct planning, JSON-RPC 2.0 tool routing, and episodic/working memory.',
+    plainExplanation:
+      'Coordinates cyclic LangGraph state machines (Thought → Action → Observation) and dispatches standardized Model Context Protocol (MCP) tool calls to external data sources.',
+    keyConcept: 'NETWORK / IOPS-BOUND',
+    keyConceptDefinition:
+      'Protocol: MCP JSON-RPC 2.0 over stdio/SSE | Loop: Thought -> Action (Tool Call) -> Observation -> Grounded Synthesis',
+  },
+  {
+    id: 'guardrails-eval',
+    stepNumber: 7,
+    label: 'D7 · Guardrails',
+    districtId: 'computer-vision',
+    title: 'D7 · Guardrails & Eval Gate',
+    summary:
+      'Input prompt-injection shield, PII redaction, and output RAGAS NLI faithfulness verification.',
+    plainExplanation:
+      'Enforces dual-gate safety: blocks adversarial prompt injections in <4ms at ingress and verifies atomic claim NLI entailment (Faithfulness >= 0.90) before tokens reach the user.',
+    keyConcept: 'COMPUTE-BOUND (TFLOPs)',
+    keyConceptDefinition:
+      'Input Gate: Prompt-Injection Classifier (<4ms) | Output Gate: Decomposed Claim NLI Entailment (Faithfulness >= 0.90)',
   },
   {
     id: 'output',
-    stepNumber: 6,
-    label: 'Output',
+    stepNumber: 8,
+    label: 'D8 · Output Nexus',
     districtId: 'output-terminal',
-    title: '6. Output Terminal — Delivering the Result',
-    summary: 'Mathematical predictions are translated back into clear human language or visual results.',
+    title: 'D8 · Output Nexus & Telemetry',
+    summary:
+      'SSE token streaming, Redis semantic caching, OpenTelemetry tracing, and production data flywheel.',
     plainExplanation:
-      'Finally, the Output Terminal takes the numbers and probabilities produced by the Inference Center, checks them for clarity and safety, and displays the finished answer, image tag, or recommendation to the user.',
-    keyConcept: 'Response Synthesis',
+      'Streams detokenized UTF-8 chunks via HTTP/2 Server-Sent Events (SSE), serves semantic cache hits in 3ms, and exports mode-specific TTFT/TPOT/MFU telemetry to Prometheus.',
+    keyConcept: 'NETWORK / IOPS-BOUND',
     keyConceptDefinition:
-      'Translating internal model probabilities back into readable sentences, visual labels, or structured actions.',
+      'Egress: HTTP/2 SSE Text-Event-Stream | Telemetry: OpenTelemetry GenAI Spans -> Prometheus TSDB',
   },
 ];
 
@@ -599,88 +659,98 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
   {
     id: 'multimodal-bird',
     name: 'Vision + Text: Wildlife ID',
-    badge: 'Multimodal',
+    badge: 'Online Inference',
     samplePrompt: 'Image: kingfisher.jpg + "Identify species & river habitat"',
-    sampleOutput: 'Common Kingfisher (Alcedo atthis) — 99.2% confidence. Inhabits slow-flowing clear rivers.',
+    sampleOutput:
+      'Common Kingfisher (Alcedo atthis) — 99.2% confidence. Inhabits slow-flowing clear rivers.',
   },
   {
     id: 'nlp-reasoning',
-    name: 'NLP: Quantum Code Synthesis',
-    badge: 'Language',
+    name: 'Agentic MCP: CUDA Kernel Synthesis',
+    badge: 'Agentic Loop',
     samplePrompt: 'Prompt: "Write an optimized CUDA kernel for matrix attention"',
-    sampleOutput: 'Generated flash_attention_kernel.cu (1.42x speedup verified across 512 tensor nodes).',
+    sampleOutput:
+      'Generated flash_attention_kernel.cu (1.42x speedup verified via MCP sandbox).',
   },
   {
     id: 'cv-autonomous',
     name: 'Vision: Autonomous Lidar Scan',
-    badge: 'Computer Vision',
-    sampleOutput: '3D Bounding Boxes: [Pedestrian: 14.2m, Cyclist: 8.6m] — Safe Trajectory Locked.',
+    badge: 'Low-Latency',
     samplePrompt: 'Stream: 60FPS stereo camera + point-cloud frame #4092',
+    sampleOutput:
+      '3D Bounding Boxes: [Pedestrian: 14.2m, Cyclist: 8.6m] — Safe Trajectory Locked.',
   },
 ];
 
+/**
+ * Online Inference & Agentic Loop Demo Journey:
+ * Strictly follows D1 -> D7 -> D6 <-> D2 -> D4/D5 -> D7 -> D8 (D3 Training is Standby/Offline!).
+ */
 export const DEMO_JOURNEY_STEPS: DemoJourneyStep[] = [
   {
     stepIndex: 0,
     districtId: 'input-gateway',
     activePathIds: ['path-input-datalake'],
-    headline: 'Step 1/7 · Packet Arrives at Input Gateway',
-    narration: 'A multimodal user request (photo + question) enters the Input Gateway and is normalized into clean tensor packets.',
-    packetSample: 'PACKET #8492-A: { image: "kingfisher.jpg", prompt: "Identify species & habitat" }',
+    headline: 'Step 1/6 · D1 Ingress: BPE Tokenization & ViT 16×16 Patch Projection',
+    narration:
+      'POST /v1/chat/multimodal arrives at D1 Ingress. Raw RGB [1, 3, 1024, 1024] is projected into 256 ViT patches (FP16) alongside BPE Token IDs.',
+    packetSample:
+      'gRPC Protobuf: PatchTensor[1, 256, 1152] (FP16) + Tokens[1, 18] (int32)',
     durationMs: 3600,
   },
   {
     stepIndex: 1,
-    districtId: 'data-lake',
-    activePathIds: ['path-input-datalake', 'path-datalake-cv', 'path-datalake-nlp'],
-    headline: 'Step 2/7 · Indexed & Routed in Data Lake',
-    narration: 'The Data Lake logs the request, indexes the payload, and splits visual pixels to Computer Vision and text to NLP.',
-    packetSample: 'INDEX_KEY: sha256:9f82a... → Route[CV_STREAM, NLP_STREAM]',
-    durationMs: 3600,
+    districtId: 'computer-vision',
+    activePathIds: ['path-datalake-cv', 'path-cv-core'],
+    headline: 'Step 2/6 · D7 Input Guardrail: Prompt-Injection & PII Shield (<4ms)',
+    narration:
+      'Before invoking any agent or model, D7 Guardrails scans the multimodal payload for adversarial prompt injections and PII leakage.',
+    packetSample:
+      'GUARDRAIL_INPUT_GATE: InjectionScore=0.002 (<0.15 threshold) -> ALLOW',
+    durationMs: 3400,
   },
   {
     stepIndex: 2,
-    districtId: 'computer-vision',
-    activePathIds: ['path-datalake-cv', 'path-cv-core', 'path-cv-training'],
-    headline: 'Step 3/7 · Visual Feature Extraction in CV District',
-    narration: 'Optical convolutional filters scan the image, detecting cyan plumage, beak geometry, and river branch textures.',
-    packetSample: 'VISION_FEATURES: [plumage_cyan: 0.98, beak_long: 0.95, water_bg: 0.89]',
+    districtId: 'nlp-district',
+    activePathIds: ['path-datalake-nlp', 'path-nlp-core'],
+    headline: 'Step 3/6 · D6 Agentic Planner: MCP JSON-RPC 2.0 Tool Dispatch',
+    narration:
+      'D6 Agentic Orchestrator formulates a ReAct plan and dispatches a JSON-RPC 2.0 MCP tool call to retrieve ornithology context from D2 Vector Vault.',
+    packetSample:
+      'MCP_CALL: {"method":"tools/call","params":{"name":"hybrid_search","ef":64}}',
     durationMs: 3600,
   },
   {
     stepIndex: 3,
-    districtId: 'nlp-district',
-    activePathIds: ['path-datalake-nlp', 'path-nlp-core', 'path-nlp-training'],
-    headline: 'Step 4/7 · Semantic Tokenization in NLP District',
-    narration: 'The NLP District converts the question into token embeddings so the network understands intent ("identify" + "habitat").',
-    packetSample: 'TOKENS: ["Identify", "species", "&", "habitat"] → Embedding[4096-d]',
+    districtId: 'data-lake',
+    activePathIds: ['path-input-datalake', 'path-datalake-nlp'],
+    headline: 'Step 4/6 · D2 Vector Vault: Hybrid HNSW + BM25 RRF Retrieval (6.4ms)',
+    narration:
+      'D2 executes O(log N) HNSW graph traversal (M=16, ef=64) fused with BM25 lexical search, returning Top-K grounded passages (D3 Training remains Offline).',
+    packetSample:
+      'HYBRID_RRF_HIT: 4 chunks (Cosine=0.94, Recall@10=94.8%, Latency=6.4ms)',
     durationMs: 3600,
   },
   {
     stepIndex: 4,
-    districtId: 'training-cluster',
-    activePathIds: ['path-datalake-training', 'path-cv-training', 'path-nlp-training', 'path-training-core'],
-    headline: 'Step 5/7 · Weight Calibration in Training Cluster',
-    narration: 'GPU towers verify feature alignment against millions of learned ornithology and ecology representations.',
-    packetSample: 'TENSOR_SYNC: 512 GPUs · Gradient Check OK · Knowledge Weights Locked',
-    durationMs: 3600,
-  },
-  {
-    stepIndex: 5,
-    districtId: 'model-core',
-    activePathIds: ['path-cv-core', 'path-nlp-core', 'path-training-core', 'path-core-inference'],
-    headline: 'Step 6/7 · Cross-Modal Fusion in Model Core',
-    narration: 'Deep attention layers inside the central Model Core connect the visual features with semantic knowledge.',
-    packetSample: 'ATTENTION_FUSION: Vision×Language Cross-Attention Score = 0.994',
+    districtId: 'inference-center',
+    activePathIds: ['path-core-inference', 'path-inference-output'],
+    headline: 'Step 5/6 · D5 Inference Engine: Prefill & PagedAttention Decode',
+    narration:
+      'Pulling frozen FP8/AWQ weights from D4 Model Core, D5 executes compute-bound prefill (TTFT 46.8ms) and HBM-bound decode (TPOT 11.4ms/tok).',
+    packetSample:
+      'vLLM_PAGED_DECODE: BlockSize=16 · TTFT=46.8ms · TPOT=11.4ms/tok (88 tok/s)',
     durationMs: 3800,
   },
   {
-    stepIndex: 6,
-    districtId: 'inference-center',
-    activePathIds: ['path-core-inference', 'path-inference-output'],
-    headline: 'Step 7/7 · Real-Time Decoding to Output Terminal',
-    narration: 'Inference Center generates the response in 11.4ms/token and streams the verified answer to the Output Terminal!',
-    packetSample: 'OUTPUT: "Common Kingfisher (Alcedo atthis) — 99.2% match. Inhabits slow-flowing rivers..."',
-    durationMs: 4200,
+    stepIndex: 5,
+    districtId: 'output-terminal',
+    activePathIds: ['path-inference-output'],
+    headline: 'Step 6/6 · D8 Output Nexus: NLI Verified HTTP/2 SSE Stream',
+    narration:
+      'Verified claims pass D7 Output Faithfulness Gate (RAGAS 0.96) and stream to the client over HTTP/2 SSE while exporting OpenTelemetry spans.',
+    packetSample:
+      'SSE EGRESS: data: {"species":"Alcedo atthis","faithfulness":0.96,"e2e_p99_ms":412}',
+    durationMs: 4000,
   },
 ];

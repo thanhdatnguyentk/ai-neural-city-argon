@@ -16,6 +16,8 @@ import {
   BOTTLENECK_SCENARIO_MAP,
   CONDUIT_PROTOCOL_LABELS,
 } from '@/data/bottleneck-scenarios';
+import { ARCHITECTURAL_MODE_MAP } from '@/data/pipeline-modes';
+import type { ArchitecturalPipelineModeId } from '@/types/pipeline-modes';
 
 interface DataFlowProps {
   selectedDistrict: DistrictId | null;
@@ -31,6 +33,7 @@ interface DataFlowProps {
   isSingularityMode?: boolean;
   activeWorkload?: WorkloadPresetId;
   activeBottleneck?: BottleneckScenarioId;
+  activePipelineMode?: ArchitecturalPipelineModeId;
   isBlueprintMode?: boolean;
   isBattleRaceActive?: boolean;
 }
@@ -62,6 +65,7 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   isSingularityMode = false,
   activeWorkload = 'multimodal-vision',
   activeBottleneck = 'none',
+  activePipelineMode = 'online-inference',
   isBlueprintMode = false,
   isBattleRaceActive = false,
 }) => {
@@ -81,6 +85,14 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   const overdriveColor = useMemo(() => new THREE.Color('#FDE047'), []);
   const bottleneckColor = useMemo(() => new THREE.Color('#EF4444'), []);
   const battleAmberColor = useMemo(() => new THREE.Color('#F59E0B'), []);
+
+  const modeSpec =
+    ARCHITECTURAL_MODE_MAP[activePipelineMode] ||
+    ARCHITECTURAL_MODE_MAP['online-inference'];
+  const modeColor = useMemo(
+    () => new THREE.Color(modeSpec.particleColorHex),
+    [modeSpec.particleColorHex]
+  );
 
   const workloadSpec =
     WORKLOAD_PRESET_MAP[activeWorkload] ||
@@ -144,11 +156,20 @@ export const DataFlow: React.FC<DataFlowProps> = ({
   const activeDistrict = highlightedFlowDistrict || selectedDistrict || hoveredDistrict;
 
   const isPathHighlighted = (c: CurveItem) => {
+    const touchesStandby =
+      modeSpec.standbyDistricts.includes(c.from) ||
+      modeSpec.standbyDistricts.includes(c.to);
+    if (touchesStandby && activeDemoPathIds.length === 0) {
+      return false;
+    }
     if (activeDemoPathIds.length > 0) {
       return activeDemoPathIds.includes(c.id);
     }
     if (activeDistrict) {
       return c.from === activeDistrict || c.to === activeDistrict;
+    }
+    if (modeSpec.activePathIds.includes(c.id)) {
+      return true;
     }
     if (trainingMode && (c.to === 'training-cluster' || c.from === 'training-cluster')) {
       return true;
@@ -168,6 +189,13 @@ export const DataFlow: React.FC<DataFlowProps> = ({
     for (let pIdx = 0; pIdx < curves.length; pIdx++) {
       const item = curves[pIdx];
       const highlighted = isPathHighlighted(item);
+      const isModeActivePath = modeSpec.activePathIds.includes(item.id);
+      const touchesStandbyDistrict =
+        modeSpec.standbyDistricts.includes(item.from) ||
+        modeSpec.standbyDistricts.includes(item.to);
+      const isFrozenWeightTether =
+        activePipelineMode === 'online-inference' &&
+        item.id === 'flow-core-inference';
       const isTrainingPath =
         item.to === 'training-cluster' || item.from === 'training-cluster';
 
@@ -186,7 +214,8 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         isSingularityMode ||
         Boolean(fromMetrics?.isMastered || toMetrics?.isMastered);
 
-      const isWorkloadActivePath = workloadSpec.activePathIds.includes(item.id);
+      const isWorkloadActivePath =
+        isModeActivePath && workloadSpec.activePathIds.includes(item.id);
       const isBottleneckPath =
         bottleneckSpec.targetDistrictId !== null &&
         (item.to === bottleneckSpec.targetDistrictId ||
@@ -220,7 +249,13 @@ export const DataFlow: React.FC<DataFlowProps> = ({
         tempPos.y += Math.sin(currentProg * Math.PI) * 0.18;
 
         dummy.position.copy(tempPos);
-        const scaleBase = isBattleRaceActive
+        // Zero online user request particles flow through standby districts or static frozen weight tethers
+        const hideParticle =
+          (touchesStandbyDistrict || !isModeActivePath || isFrozenWeightTether) &&
+          activeDemoPathIds.length === 0;
+        const scaleBase = hideParticle
+          ? 0
+          : isBattleRaceActive
           ? isOptimizedContenderB
             ? 0.22
             : 0.16
@@ -244,6 +279,8 @@ export const DataFlow: React.FC<DataFlowProps> = ({
               : battleAmberColor
             : isBottleneckPath
             ? bottleneckColor
+            : isModeActivePath
+            ? modeColor
             : isWorkloadActivePath
             ? workloadColor
             : highlighted
@@ -285,9 +322,15 @@ export const DataFlow: React.FC<DataFlowProps> = ({
       {/* Conduit Base Tracks & Glowing Pathways */}
       {curves.map((item) => {
         const highlighted = isPathHighlighted(item);
-        const isWorkloadActivePath = workloadSpec.activePathIds.includes(
-          item.id
-        );
+        const isModeActivePath = modeSpec.activePathIds.includes(item.id);
+        const touchesStandbyDistrict =
+          modeSpec.standbyDistricts.includes(item.from) ||
+          modeSpec.standbyDistricts.includes(item.to);
+        const isFrozenWeightTether =
+          activePipelineMode === 'online-inference' &&
+          item.id === 'flow-core-inference';
+        const isWorkloadActivePath =
+          isModeActivePath && workloadSpec.activePathIds.includes(item.id);
         const isBottleneckPath =
           bottleneckSpec.targetDistrictId !== null &&
           (item.to === bottleneckSpec.targetDistrictId ||
@@ -299,10 +342,12 @@ export const DataFlow: React.FC<DataFlowProps> = ({
               allDistrictsMastery?.[item.to]?.isMastered
           );
         const dimmed =
-          (activeDistrict !== null || activeDemoPathIds.length > 0) &&
-          !highlighted &&
-          !isSingularityMode &&
-          !isBlueprintMode;
+          touchesStandbyDistrict ||
+          (!isModeActivePath && !isBlueprintMode) ||
+          ((activeDistrict !== null || activeDemoPathIds.length > 0) &&
+            !highlighted &&
+            !isSingularityMode &&
+            !isBlueprintMode);
 
         const midPoint = item.points[Math.floor(item.points.length / 2)];
         const protocolInfo = CONDUIT_PROTOCOL_LABELS[item.id];
@@ -325,6 +370,10 @@ export const DataFlow: React.FC<DataFlowProps> = ({
               color={
                 isBottleneckPath
                   ? '#EF4444'
+                  : isFrozenWeightTether
+                  ? '#00F0FF'
+                  : isModeActivePath
+                  ? modeSpec.particleColorHex
                   : isWorkloadActivePath
                   ? workloadSpec.particleColorHex
                   : isSingularityMode
@@ -336,17 +385,22 @@ export const DataFlow: React.FC<DataFlowProps> = ({
               lineWidth={
                 isBottleneckPath
                   ? 3.8
+                  : isFrozenWeightTether
+                  ? 3.5
                   : isSingularityMode
                   ? 3.6
                   : highlighted || isOverdrive || isBlueprintMode
                   ? 3.2
-                  : 1.8
+                  : 1.4
               }
               transparent
               opacity={
-                dimmed
-                  ? 0.25
+                touchesStandbyDistrict && !isBlueprintMode
+                  ? 0.12
+                  : dimmed
+                  ? 0.2
                   : isBottleneckPath ||
+                    isFrozenWeightTether ||
                     isSingularityMode ||
                     highlighted ||
                     isOverdrive ||

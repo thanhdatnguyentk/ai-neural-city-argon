@@ -72,6 +72,11 @@ import { PipelineTimeline } from '@/components/PipelineTimeline';
 import { SystemStatusPanel, HeroStatusHUD } from '@/components/SystemStatusPanel';
 import { useRoadmapProgress } from '@/hooks/useRoadmapProgress';
 import { useTycoonGame } from '@/hooks/useTycoonGame';
+import {
+  ARCHITECTURAL_PIPELINE_MODES,
+  ARCHITECTURAL_MODE_MAP,
+} from '@/data/pipeline-modes';
+import type { ArchitecturalPipelineModeId } from '@/types/pipeline-modes';
 
 const NeuralCityScene = dynamic(
   () => import('@/components/NeuralCityScene').then((mod) => mod.NeuralCityScene),
@@ -109,6 +114,16 @@ function NeuralCitySandboxApp() {
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [flowSpeed, setFlowSpeed] = useState<number>(1);
   const [trainingMode, setTrainingMode] = useState<boolean>(false);
+  const [activePipelineMode, setActivePipelineMode] =
+    useState<ArchitecturalPipelineModeId>('online-inference');
+
+  const handleSelectPipelineMode = useCallback(
+    (mode: ArchitecturalPipelineModeId) => {
+      setActivePipelineMode(mode);
+      setTrainingMode(mode === 'offline-training');
+    },
+    []
+  );
   const [isNight, setIsNight] = useState<boolean>(true);
   const [reducedMotion, setReducedMotion] = useState<boolean>(false);
   const [forceSimplified2D, setForceSimplified2D] = useState<boolean>(false);
@@ -900,6 +915,7 @@ function NeuralCitySandboxApp() {
               isSingularityMode={isSingularityMode}
               activeWorkload={activeWorkload}
               activeBottleneck={activeBottleneck}
+              activePipelineMode={activePipelineMode}
               isBlueprintMode={isBlueprintMode}
               isBattleRaceActive={isBattleRaceActive}
               tycoonDistrictMetrics={
@@ -1005,6 +1021,69 @@ function NeuralCitySandboxApp() {
                     >
                       {t.hero.subtitle}
                     </p>
+
+                    {/* 3-Mode Architectural Pipeline Switcher */}
+                    <div
+                      className={`mt-3 rounded-xl border p-2.5 ${
+                        isNight
+                          ? 'border-cyan-500/35 bg-slate-950/85'
+                          : 'border-cyan-600/30 bg-cyan-50/70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between font-mono text-[10px] uppercase">
+                        <span className="font-bold text-cyan-400">
+                          Pipeline Architecture Mode
+                        </span>
+                        <span className="rounded bg-cyan-500/20 px-1.5 py-0.5 text-[9px] font-bold text-cyan-300">
+                          D1–D8 Canonical
+                        </span>
+                      </div>
+                      <div
+                        role="tablist"
+                        aria-label="3D HUD Pipeline Mode Switcher"
+                        className="mt-1.5 grid grid-cols-3 gap-1"
+                      >
+                        {ARCHITECTURAL_PIPELINE_MODES.map((m) => {
+                          const isSelectedMode = m.id === activePipelineMode;
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              role="tab"
+                              aria-selected={isSelectedMode}
+                              onClick={() => handleSelectPipelineMode(m.id)}
+                              className={`rounded-lg px-2 py-1 text-center font-mono text-[10px] transition-colors cursor-pointer truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                                isSelectedMode
+                                  ? m.id === 'online-inference'
+                                    ? 'bg-cyan-400 text-slate-950 font-bold'
+                                    : m.id === 'offline-indexing'
+                                    ? 'bg-emerald-400 text-slate-950 font-bold'
+                                    : 'bg-fuchsia-400 text-slate-950 font-bold'
+                                  : isNight
+                                  ? 'bg-slate-900 text-slate-300 hover:text-white'
+                                  : 'bg-white text-slate-700 hover:text-slate-950'
+                              }`}
+                            >
+                              {m.shortLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p
+                        className={`mt-1.5 font-mono text-[9px] truncate ${
+                          isNight ? 'text-cyan-300/90' : 'text-cyan-900'
+                        }`}
+                        title={
+                          ARCHITECTURAL_MODE_MAP[activePipelineMode]
+                            .directedFlowSummary
+                        }
+                      >
+                        {
+                          ARCHITECTURAL_MODE_MAP[activePipelineMode]
+                            .directedFlowSummary
+                        }
+                      </p>
+                    </div>
 
                     {/* Step 2: Interactive Workload Simulator ("Packet Tracer") */}
                     <div
@@ -1221,6 +1300,7 @@ function NeuralCitySandboxApp() {
                   masteryTotal={cityMastery.total}
                   computedTelemetry={computedTelemetry}
                   activeBottleneck={activeBottleneck}
+                  activePipelineMode={activePipelineMode}
                 />
 
                 {/* Step 3.2: AI City Architect Agent Trigger & Command Bar */}
@@ -1477,7 +1557,15 @@ function NeuralCitySandboxApp() {
                 onToggleLabels={() => setShowLabels((s) => !s)}
                 onTogglePause={() => setIsPaused((p) => !p)}
                 onChangeSpeed={(spd) => setFlowSpeed(spd)}
-                onToggleTrainingMode={() => setTrainingMode((t) => !t)}
+                onToggleTrainingMode={() => {
+                  setTrainingMode((prev) => {
+                    const next = !prev;
+                    setActivePipelineMode(
+                      next ? 'offline-training' : 'online-inference'
+                    );
+                    return next;
+                  });
+                }}
                 onToggleBlueprintMode={toggleBlueprintMode}
                 onRunDemo={handleRunDemo}
                 onResetCamera={handleResetCamera}
@@ -1496,9 +1584,11 @@ function NeuralCitySandboxApp() {
         <PipelineTimeline
           activeStage={activePipelineStage}
           selectedDistrict={selectedDistrict}
+          activePipelineMode={activePipelineMode}
           isNight={isNight}
           getDistrictProgress={getDistrictProgress}
           onSelectStage={handleSelectStageFromTimeline}
+          onSelectPipelineMode={handleSelectPipelineMode}
           onSelectDistrictAndScroll={handleSelectDistrictAndScrollToCity}
           onOpenRoadmapDrawer={handleOpenRoadmapDrawer}
         />
@@ -1517,6 +1607,8 @@ function NeuralCitySandboxApp() {
           masteredDistrictsCount={masteredDistrictsCount}
           computedTelemetry={computedTelemetry}
           activeBottleneck={activeBottleneck}
+          activePipelineMode={activePipelineMode}
+          onSelectPipelineMode={handleSelectPipelineMode}
           onSelectBottleneck={setActiveBottleneck}
           onFixBottleneck={handleFixBottleneck}
         />

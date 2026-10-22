@@ -29,6 +29,8 @@ interface DistrictProps {
   isBlueprintMode?: boolean;
   isBottleneckTarget?: boolean;
   isAdversarialShieldActive?: boolean;
+  isStandbyInMode?: boolean;
+  standbyBadgeText?: string | null;
   tycoonMetric?: DistrictSaturationMetric;
   onSelect: (id: DistrictId) => void;
   onDoubleClick?: (id: DistrictId) => void;
@@ -53,6 +55,8 @@ export const District: React.FC<DistrictProps> = ({
   isBlueprintMode = false,
   isBottleneckTarget = false,
   isAdversarialShieldActive = false,
+  isStandbyInMode = false,
+  standbyBadgeText = null,
   tycoonMetric,
   onSelect,
   onDoubleClick,
@@ -152,10 +156,13 @@ export const District: React.FC<DistrictProps> = ({
               const bottleneckPulse = isBottleneckTarget
                 ? 1.6 + 0.8 * Math.sin(state.clock.elapsedTime * 7.0)
                 : 1.0;
+              const standbyDimFactor =
+                isStandbyInMode && !isSelected && !activeHover ? 0.15 : 1.0;
               mat.emissiveIntensity =
                 mat.userData.baseEmissiveRatio *
                 smoothEmissiveRef.current *
-                bottleneckPulse;
+                bottleneckPulse *
+                standbyDimFactor;
             }
           }
         }
@@ -165,9 +172,11 @@ export const District: React.FC<DistrictProps> = ({
     if (isPaused || reducedMotion) return;
 
     const masteryAnimBoost = isMastered ? 1.35 : 1 + masteryRatio * 0.2;
+    const standbySpeedFactor = isStandbyInMode && !isSelected ? 0.12 : 1.0;
     const speedMultiplier =
       (district.id === 'training-cluster' && trainingMode ? flowSpeed * 2.4 : flowSpeed) *
-      masteryAnimBoost;
+      masteryAnimBoost *
+      standbySpeedFactor;
     const t = state.clock.elapsedTime * speedMultiplier;
 
     // 2. District-specific subtle idle animations
@@ -966,11 +975,16 @@ export const District: React.FC<DistrictProps> = ({
                   }}
                 />
                 <span className="font-mono text-[9px] opacity-60 font-semibold">
-                  0{index + 1}
+                  D{index + 1}
                 </span>
                 <span className="font-mono text-[10px] font-bold tracking-wider uppercase whitespace-nowrap">
                   {district.name}
                 </span>
+                {isStandbyInMode && standbyBadgeText && (
+                  <span className="ml-0.5 inline-flex items-center rounded-full border border-slate-500/80 bg-slate-900/95 px-1.5 py-0.2 font-mono text-[8px] font-bold tracking-wider text-slate-300 whitespace-nowrap">
+                    [{standbyBadgeText}]
+                  </span>
+                )}
                 {tycoonMetric && tycoonMetric.unlockedTier > 0 && (
                   <span className="ml-0.5 inline-flex items-center rounded-full border border-cyan-400/80 bg-cyan-500/25 px-1.5 py-0.2 font-mono text-[8px] font-bold tracking-wider text-cyan-200 whitespace-nowrap">
                     [T{tycoonMetric.unlockedTier}

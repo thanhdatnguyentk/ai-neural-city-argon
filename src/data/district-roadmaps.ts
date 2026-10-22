@@ -318,8 +318,8 @@ export const DISTRICT_ROADMAPS: DistrictDeepDive[] = [
   },
   {
     districtId: 'computer-vision',
-    districtCode: 'DIST-03',
-    districtName: 'Computer Vision District',
+    districtCode: 'DIST-07',
+    districtName: 'Guardrails & Eval Gate',
     pipelineStageName: 'Visual Perception, Multimodal Evaluation & Interpretability',
     accentColorHex: '#38BDF8',
     tagline:
@@ -481,8 +481,8 @@ export const DISTRICT_ROADMAPS: DistrictDeepDive[] = [
   },
   {
     districtId: 'nlp-district',
-    districtCode: 'DIST-04',
-    districtName: 'NLP & Agentic Orchestration District',
+    districtCode: 'DIST-06',
+    districtName: 'Agentic & MCP Orchestrator',
     pipelineStageName: 'Language Reasoning, Tool Use, Memory & Protocols',
     accentColorHex: '#38BDF8',
     tagline:
@@ -638,8 +638,8 @@ export const DISTRICT_ROADMAPS: DistrictDeepDive[] = [
   },
   {
     districtId: 'training-cluster',
-    districtCode: 'DIST-05',
-    districtName: 'Training Cluster & Foundry',
+    districtCode: 'DIST-03',
+    districtName: 'Training Foundry',
     pipelineStageName: 'Optimization, Distributed Compute & Alignment',
     accentColorHex: '#8B5CF6',
     tagline:
@@ -801,8 +801,8 @@ export const DISTRICT_ROADMAPS: DistrictDeepDive[] = [
   },
   {
     districtId: 'model-core',
-    districtCode: 'DIST-06',
-    districtName: 'Model Core',
+    districtCode: 'DIST-04',
+    districtName: 'Model Core & Registry',
     pipelineStageName: 'Neural Architectures & Foundation Backbones',
     accentColorHex: '#EC4899',
     tagline:
@@ -964,8 +964,8 @@ export const DISTRICT_ROADMAPS: DistrictDeepDive[] = [
   },
   {
     districtId: 'inference-center',
-    districtCode: 'DIST-07',
-    districtName: 'Inference Center & Engine',
+    districtCode: 'DIST-05',
+    districtName: 'Inference Engine',
     pipelineStageName: 'Low-Latency Serving & Hardware Acceleration',
     accentColorHex: '#8B5CF6',
     tagline:

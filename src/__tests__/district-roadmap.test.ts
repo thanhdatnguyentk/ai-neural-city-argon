@@ -1,6 +1,16 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { DISTRICTS } from '../data/districts.ts';
+import {
+  DISTRICTS,
+  PIPELINE_STEPS,
+  DATA_FLOW_PATHS,
+} from '../data/districts.ts';
+import {
+  CANONICAL_DISTRICT_SPECS,
+  ARCHITECTURAL_PIPELINE_MODES,
+  ARCHITECTURAL_MODE_MAP,
+} from '../data/pipeline-modes.ts';
+import { computeModeGroundedTelemetry } from '../lib/telemetry-physics.ts';
 import {
   DISTRICT_ROADMAPS,
   DISTRICT_ROADMAP_MAP,
@@ -500,6 +510,99 @@ describe('Phase 3: AI Lab Tycoon, 24-Node Tech Tree & Boss Workload Defense Mode
     assert.ok(
       wave3Optimized.currentP99LatencyMs < wave3Baseline.currentP99LatencyMs
     );
+  });
+});
+
+describe('Core AI Systems Architecture & Physical Telemetry Refactoring', () => {
+  it('enforces a strict 1-to-1 Canonical 8-District Taxonomy (D1-D8) across DISTRICTS, PIPELINE_STEPS, and CANONICAL_DISTRICT_SPECS', () => {
+    assert.equal(DISTRICTS.length, 8);
+    assert.equal(PIPELINE_STEPS.length, 8);
+    assert.equal(Object.keys(CANONICAL_DISTRICT_SPECS).length, 8);
+
+    const expectedOrder = [
+      { id: 'input-gateway', code: 'D1', stage: 'input' },
+      { id: 'data-lake', code: 'D2', stage: 'data-lake' },
+      { id: 'training-cluster', code: 'D3', stage: 'training' },
+      { id: 'model-core', code: 'D4', stage: 'model-core' },
+      { id: 'inference-center', code: 'D5', stage: 'inference' },
+      { id: 'nlp-district', code: 'D6', stage: 'agentic-mcp' },
+      { id: 'computer-vision', code: 'D7', stage: 'guardrails-eval' },
+      { id: 'output-terminal', code: 'D8', stage: 'output' },
+    ] as const;
+
+    expectedOrder.forEach((exp, idx) => {
+      assert.equal(DISTRICTS[idx].id, exp.id);
+      assert.equal(DISTRICTS[idx].pipelineStage, exp.stage);
+      assert.equal(PIPELINE_STEPS[idx].districtId, exp.id);
+      assert.equal(PIPELINE_STEPS[idx].id, exp.stage);
+      const spec = CANONICAL_DISTRICT_SPECS[exp.id];
+      assert.equal(spec.code, exp.code);
+      assert.equal(spec.stepNumber, idx + 1);
+      assert.ok(spec.wireProtocolAndTensorSpec.length > 10);
+      assert.ok(spec.coreResponsibility.length > 10);
+      assert.ok(spec.primaryProductionStack.length >= 2);
+      assert.ok(spec.modeRoleSummary['online-inference'].length > 10);
+    });
+  });
+
+  it('decouples Online Inference, Offline Indexing, and Offline Training so online user requests never route through D3 Training Foundry', () => {
+    assert.equal(ARCHITECTURAL_PIPELINE_MODES.length, 3);
+    const onlineMode = ARCHITECTURAL_MODE_MAP['online-inference'];
+    const indexingMode = ARCHITECTURAL_MODE_MAP['offline-indexing'];
+    const trainingMode = ARCHITECTURAL_MODE_MAP['offline-training'];
+
+    // D3 Training Foundry must be in standbyDistricts during Online Inference
+    assert.ok(onlineMode.standbyDistricts.includes('training-cluster'));
+    assert.equal(onlineMode.standbyBadgeText, 'OFFLINE IN SERVING MODE');
+
+    // Verify zero active conduits in Online Inference touch D3 Training Foundry
+    for (const pathId of onlineMode.activePathIds) {
+      const pathObj = DATA_FLOW_PATHS.find((p) => p.id === pathId);
+      assert.ok(pathObj, `Path ${pathId} must exist in DATA_FLOW_PATHS`);
+      assert.notEqual(
+        pathObj.from,
+        'training-cluster',
+        'Online inference must never route from D3 Training Foundry'
+      );
+      assert.notEqual(
+        pathObj.to,
+        'training-cluster',
+        'Online inference must never route to D3 Training Foundry'
+      );
+    }
+
+    // Offline Indexing must isolate D3, D6
+    assert.ok(indexingMode.standbyDistricts.includes('training-cluster'));
+
+    // Offline Training must include D2 -> D3 -> D4 -> D7 -> D8 and isolate D5 Inference Engine
+    assert.ok(trainingMode.activeDistricts.includes('training-cluster'));
+    assert.ok(trainingMode.standbyDistricts.includes('inference-center'));
+  });
+
+  it('produces physically grounded, mode-isolated telemetry cards with zero conflation between TTFT/TPOT and Epoch Loss/MFU', () => {
+    const onlineTelemetry = computeModeGroundedTelemetry('online-inference', {
+      flowSpeed: 1,
+      activeBottleneck: 'none',
+    });
+    assert.equal(onlineTelemetry.cards.length, 5);
+    const onlineLabels = onlineTelemetry.cards.map((c) => c.label).join(' | ');
+    assert.ok(onlineLabels.includes('TTFT (TIME-TO-FIRST-TOKEN)'));
+    assert.ok(onlineLabels.includes('TPOT / ITL (INTER-TOKEN LATENCY)'));
+    assert.ok(onlineLabels.includes('END-TO-END REQUEST LATENCY (P99)'));
+    assert.ok(onlineLabels.includes('KV-CACHE POOL SATURATION'));
+    assert.ok(!onlineLabels.includes('TRAINING PROGRESS'));
+
+    const trainingTelemetry = computeModeGroundedTelemetry('offline-training', {
+      flowSpeed: 1,
+      activeBottleneck: 'none',
+    });
+    assert.equal(trainingTelemetry.cards.length, 5);
+    const trainingLabels = trainingTelemetry.cards
+      .map((c) => c.label)
+      .join(' | ');
+    assert.ok(trainingLabels.includes('MODEL FLOPS UTILIZATION (MFU)'));
+    assert.ok(trainingLabels.includes('ZERO-3 INTERCONNECT OVERHEAD'));
+    assert.ok(trainingLabels.includes('OPTIMIZATION DYNAMICS'));
   });
 });
 

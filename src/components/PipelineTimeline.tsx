@@ -11,8 +11,9 @@ import {
   Radio,
   Sparkles,
   Terminal,
-  BookOpen,
   Layers,
+  Activity,
+  Gauge,
 } from 'lucide-react';
 import {
   PIPELINE_STEPS,
@@ -20,15 +21,26 @@ import {
   DistrictId,
   PipelineStageId,
 } from '@/data/districts';
+import {
+  CANONICAL_DISTRICT_SPECS,
+  ARCHITECTURAL_PIPELINE_MODES,
+  ARCHITECTURAL_MODE_MAP,
+} from '@/data/pipeline-modes';
+import type {
+  ArchitecturalPipelineModeId,
+  HardwareBottleneckClass,
+} from '@/types/pipeline-modes';
 import type { ProgressStats } from '@/hooks/useRoadmapProgress';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface PipelineTimelineProps {
   activeStage: PipelineStageId;
   selectedDistrict: DistrictId | null;
+  activePipelineMode?: ArchitecturalPipelineModeId;
   isNight: boolean;
   getDistrictProgress?: (districtId: DistrictId) => ProgressStats;
   onSelectStage: (stageId: PipelineStageId, districtId: DistrictId) => void;
+  onSelectPipelineMode?: (mode: ArchitecturalPipelineModeId) => void;
   onSelectDistrictAndScroll: (districtId: DistrictId) => void;
   onOpenRoadmapDrawer?: (districtId: DistrictId) => void;
 }
@@ -36,20 +48,41 @@ interface PipelineTimelineProps {
 const DISTRICT_ICONS: Record<DistrictId, React.ReactNode> = {
   'input-gateway': <Radio aria-hidden="true" className="h-4 w-4" />,
   'data-lake': <Database aria-hidden="true" className="h-4 w-4" />,
-  'computer-vision': <Eye aria-hidden="true" className="h-4 w-4" />,
-  'nlp-district': <MessageSquare aria-hidden="true" className="h-4 w-4" />,
   'training-cluster': <Cpu aria-hidden="true" className="h-4 w-4" />,
   'model-core': <Network aria-hidden="true" className="h-4 w-4" />,
   'inference-center': <Sparkles aria-hidden="true" className="h-4 w-4" />,
+  'nlp-district': <MessageSquare aria-hidden="true" className="h-4 w-4" />,
+  'computer-vision': <Eye aria-hidden="true" className="h-4 w-4" />,
   'output-terminal': <Terminal aria-hidden="true" className="h-4 w-4" />,
 };
+
+function getBottleneckBadgeStyle(
+  bottleneckClass: HardwareBottleneckClass,
+  isNight: boolean
+): string {
+  if (bottleneckClass === 'COMPUTE-BOUND (TFLOPs)') {
+    return isNight
+      ? 'border-fuchsia-400/60 bg-fuchsia-500/20 text-fuchsia-200'
+      : 'border-fuchsia-600/40 bg-fuchsia-100 text-fuchsia-950';
+  }
+  if (bottleneckClass === 'MEMORY-BANDWIDTH-BOUND (HBM GB/s)') {
+    return isNight
+      ? 'border-amber-400/60 bg-amber-500/20 text-amber-200'
+      : 'border-amber-600/40 bg-amber-100 text-amber-950';
+  }
+  return isNight
+    ? 'border-cyan-400/60 bg-cyan-500/20 text-cyan-200'
+    : 'border-cyan-600/40 bg-cyan-100 text-cyan-950';
+}
 
 export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
   activeStage,
   selectedDistrict,
+  activePipelineMode = 'online-inference',
   isNight,
   getDistrictProgress,
   onSelectStage,
+  onSelectPipelineMode,
   onSelectDistrictAndScroll,
   onOpenRoadmapDrawer,
 }) => {
@@ -57,6 +90,13 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
   const currentStep =
     PIPELINE_STEPS.find((s) => s.id === activeStage) || PIPELINE_STEPS[0];
   const currentLocalizedStage = t.pipelineStages[currentStep.id];
+  const currentTechSpec = CANONICAL_DISTRICT_SPECS[currentStep.districtId];
+  const modeSpec =
+    ARCHITECTURAL_MODE_MAP[activePipelineMode] ||
+    ARCHITECTURAL_MODE_MAP['online-inference'];
+  const isCurrentStandby = modeSpec.standbyDistricts.includes(
+    currentStep.districtId
+  );
 
   return (
     <section
@@ -69,8 +109,8 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
       }`}
     >
       <div className="mx-auto max-w-7xl">
-        {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        {/* Section Header + 3-Mode Architectural Switcher */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
           <div>
             <span
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-xs font-semibold uppercase tracking-widest ${
@@ -79,49 +119,117 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                   : 'border-cyan-600/30 bg-cyan-50 text-cyan-800'
               }`}
             >
-              AI Architecture Walkthrough ({t.nativeLabel})
+              Canonical 8-District Architecture ({t.nativeLabel})
             </span>
             <h2
               id="pipeline-heading"
               className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight"
             >
-              {t.hero.title} — {t.header.navPipeline}
+              {t.hero.title} — {t.header.navPipeline} (D1–D8)
             </h2>
             <p
               className={`mt-1.5 max-w-2xl text-sm ${
                 isNight ? 'text-slate-300' : 'text-slate-600'
               }`}
             >
-              {t.hero.subtitle}
+              Production AI systems decouple real-time inference from offline data indexing and distributed GPU training. Switch architectural modes below to inspect physical routing and tensor shapes.
             </p>
           </div>
-          <div
-            className={`font-mono text-xs font-semibold ${
-              isNight ? 'text-cyan-400' : 'text-cyan-700'
-            }`}
-          >
-            {t.pipelineStages.input.label} → {t.pipelineStages['data-lake'].label} →{' '}
-            {t.pipelineStages.training.label} → {t.pipelineStages['model-core'].label} →{' '}
-            {t.pipelineStages.inference.label} → {t.pipelineStages.output.label}
+
+          {/* 3-Mode Architectural Switcher */}
+          <div className="flex flex-col items-start lg:items-end gap-2">
+            <span
+              className={`font-mono text-[10px] font-bold uppercase tracking-widest ${
+                isNight ? 'text-slate-400' : 'text-slate-600'
+              }`}
+            >
+              Select Decoupled Pipeline Mode:
+            </span>
+            <div
+              role="tablist"
+              aria-label="Architectural Pipeline Modes"
+              className={`inline-flex flex-wrap items-center gap-1.5 rounded-2xl border p-1.5 ${
+                isNight
+                  ? 'border-slate-800 bg-slate-950/90'
+                  : 'border-slate-300 bg-white shadow-sm'
+              }`}
+            >
+              {ARCHITECTURAL_PIPELINE_MODES.map((m) => {
+                const isSelectedMode = m.id === activePipelineMode;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelectedMode}
+                    onClick={() => onSelectPipelineMode?.(m.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 font-mono text-xs font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                      isSelectedMode
+                        ? m.id === 'online-inference'
+                          ? 'bg-cyan-400 text-slate-950 shadow-md shadow-cyan-500/20'
+                          : m.id === 'offline-indexing'
+                          ? 'bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20'
+                          : 'bg-fuchsia-400 text-slate-950 shadow-md shadow-fuchsia-500/20'
+                        : isNight
+                        ? 'text-slate-300 hover:bg-slate-900 hover:text-white'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                    }`}
+                  >
+                    <Activity aria-hidden="true" className="h-3.5 w-3.5" />
+                    <span>{m.shortLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Interactive 6-Stage Pipeline Bar */}
-        <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Active Mode Directed Path Banner */}
+        <div
+          className={`mt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border px-4 py-2.5 font-mono text-xs ${
+            isNight
+              ? 'border-cyan-500/30 bg-slate-900/80 text-cyan-300'
+              : 'border-cyan-600/30 bg-cyan-50/70 text-cyan-900'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+              {modeSpec.title}
+            </span>
+            <span className="font-bold">{modeSpec.directedFlowSummary}</span>
+          </div>
+          <span
+            className={`text-[11px] ${
+              isNight ? 'text-slate-400' : 'text-slate-600'
+            }`}
+          >
+            {modeSpec.workloadExample}
+          </span>
+        </div>
+
+        {/* Interactive 8-District Canonical Pipeline Bar (D1-D8) */}
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
           {PIPELINE_STEPS.map((step, idx) => {
             const isActive = activeStage === step.id;
             const locStage = t.pipelineStages[step.id];
+            const spec = CANONICAL_DISTRICT_SPECS[step.districtId];
+            const isStandby = modeSpec.standbyDistricts.includes(step.districtId);
+
             return (
               <button
                 key={step.id}
                 type="button"
                 onClick={() => onSelectStage(step.id, step.districtId)}
                 aria-pressed={isActive}
-                className={`group relative flex flex-col justify-between rounded-2xl border p-4 text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                className={`group relative flex flex-col justify-between rounded-2xl border p-3 text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                   isActive
                     ? isNight
                       ? 'border-cyan-400 bg-cyan-500/15 shadow-lg shadow-cyan-500/15'
                       : 'border-cyan-600 bg-cyan-50/90 shadow-md'
+                    : isStandby
+                    ? isNight
+                      ? 'border-slate-800/70 bg-slate-950/50 opacity-60 hover:opacity-95'
+                      : 'border-slate-200 bg-slate-100/70 opacity-65 hover:opacity-95'
                     : isNight
                     ? 'border-slate-800 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900'
                     : 'border-slate-200 bg-white hover:border-slate-300'
@@ -129,40 +237,50 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
               >
                 <div className="flex items-center justify-between w-full">
                   <span
-                    className={`inline-flex h-6 w-6 items-center justify-center rounded-full font-mono text-xs font-bold ${
+                    className={`inline-flex h-6 px-1.5 items-center justify-center rounded-md font-mono text-[11px] font-bold ${
                       isActive
                         ? 'bg-cyan-400 text-slate-950'
+                        : isStandby
+                        ? isNight
+                          ? 'bg-slate-800/80 text-slate-500'
+                          : 'bg-slate-200 text-slate-500'
                         : isNight
-                        ? 'bg-slate-800 text-slate-300'
-                        : 'bg-slate-200 text-slate-700'
+                        ? 'bg-slate-800 text-cyan-300'
+                        : 'bg-slate-200 text-slate-800'
                     }`}
                   >
-                    {step.stepNumber}
+                    {spec.code}
                   </span>
-                  {idx < PIPELINE_STEPS.length - 1 && (
-                    <ArrowRight
-                      aria-hidden="true"
-                      className={`h-4 w-4 transition-transform group-hover:translate-x-0.5 ${
-                        isActive
-                          ? isNight
-                            ? 'text-cyan-400'
-                            : 'text-cyan-700'
-                          : 'text-slate-500'
-                      }`}
-                    />
+                  {isStandby ? (
+                    <span className="rounded border border-slate-600/60 px-1 py-0.2 font-mono text-[8px] uppercase text-slate-400">
+                      STANDBY
+                    </span>
+                  ) : (
+                    idx < PIPELINE_STEPS.length - 1 && (
+                      <ArrowRight
+                        aria-hidden="true"
+                        className={`h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 ${
+                          isActive
+                            ? isNight
+                              ? 'text-cyan-400'
+                              : 'text-cyan-700'
+                            : 'text-slate-500'
+                        }`}
+                      />
+                    )
                   )}
                 </div>
 
-                <div className="mt-3">
+                <div className="mt-2.5">
                   <div
-                    className={`font-mono text-xs font-bold uppercase tracking-wider ${
+                    className={`font-mono text-[11px] font-bold uppercase tracking-wider truncate ${
                       isNight ? 'text-cyan-400' : 'text-cyan-800'
                     }`}
                   >
                     {locStage?.label || step.label}
                   </div>
                   <p
-                    className={`mt-1 text-xs line-clamp-2 ${
+                    className={`mt-1 text-[11px] line-clamp-2 ${
                       isNight ? 'text-slate-300' : 'text-slate-600'
                     }`}
                   >
@@ -174,7 +292,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
           })}
         </div>
 
-        {/* Active Pipeline Stage Explanation Card */}
+        {/* Active District Dual-Layer Technical Spec Card */}
         <div
           className={`mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6 rounded-2xl border p-6 ${
             isNight
@@ -182,33 +300,84 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
               : 'border-slate-200 bg-white shadow-sm'
           }`}
         >
-          <div className="lg:col-span-7 space-y-3">
-            <div
-              className={`flex items-center gap-2 font-mono text-xs uppercase font-semibold ${
-                isNight ? 'text-cyan-400' : 'text-cyan-700'
-              }`}
-            >
-              <span>Stage {currentStep.stepNumber} of 6</span>
-              <span aria-hidden="true">•</span>
-              <span>{t.districts[currentStep.districtId]?.name}</span>
+          {/* Left Column: Layer 1 — Architectural Role Summary & Hardware Bottleneck Badge */}
+          <div className="lg:col-span-6 space-y-3.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`font-mono text-xs uppercase font-bold ${
+                  isNight ? 'text-cyan-400' : 'text-cyan-700'
+                }`}
+              >
+                District {currentTechSpec.code} of D8 • {currentTechSpec.canonicalName}
+              </span>
+              {isCurrentStandby ? (
+                <span className="rounded-md border border-amber-400/60 bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-amber-200">
+                  [{modeSpec.standbyBadgeText}]
+                </span>
+              ) : (
+                <span className="rounded-md border border-emerald-400/50 bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-emerald-300">
+                  [ACTIVE IN {modeSpec.shortLabel.toUpperCase()}]
+                </span>
+              )}
             </div>
+
             <h3 className="text-xl font-bold">
               {currentLocalizedStage?.title || currentStep.title}
             </h3>
+
+            {/* Mode-Specific Role Box */}
+            <div
+              className={`rounded-xl border p-3.5 ${
+                isNight
+                  ? 'border-cyan-500/30 bg-slate-900/80 text-slate-200'
+                  : 'border-cyan-600/30 bg-cyan-50/60 text-slate-800'
+              }`}
+            >
+              <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-400">
+                Architectural Role in {modeSpec.title}:
+              </div>
+              <p className="mt-1 text-xs leading-relaxed">
+                {currentTechSpec.modeRoleSummary[activePipelineMode]}
+              </p>
+            </div>
+
             <p
               className={`text-sm leading-relaxed ${
-                isNight ? 'text-slate-200' : 'text-slate-700'
+                isNight ? 'text-slate-300' : 'text-slate-700'
               }`}
             >
               {currentStep.plainExplanation}
             </p>
+
+            {/* Hardware Bottleneck Badge */}
+            <div className="pt-1 flex flex-col gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider ${getBottleneckBadgeStyle(
+                    currentTechSpec.hardwareBottleneckBadge,
+                    isNight
+                  )}`}
+                >
+                  <Gauge aria-hidden="true" className="h-3.5 w-3.5" />
+                  <span>[{currentTechSpec.hardwareBottleneckBadge}]</span>
+                </span>
+              </div>
+              <p
+                className={`font-mono text-[11px] ${
+                  isNight ? 'text-slate-400' : 'text-slate-600'
+                }`}
+              >
+                Roofline Constraint: {currentTechSpec.dominantHardwareBound}
+              </p>
+            </div>
+
             <div className="pt-2 flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => onSelectDistrictAndScroll(currentStep.districtId)}
                 className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 font-mono text-xs font-bold text-slate-950 hover:bg-cyan-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
               >
-                <span>Inspect in 3D City</span>
+                <span>Inspect {currentTechSpec.code} in 3D City</span>
                 <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
               {onOpenRoadmapDrawer && (
@@ -228,56 +397,75 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
             </div>
           </div>
 
+          {/* Right Column: Layer 2 — Wire Protocol & Tensor Specification (Monospace Spec Box) */}
           <div
-            className={`lg:col-span-5 flex flex-col justify-between rounded-xl border p-4 ${
+            className={`lg:col-span-6 flex flex-col justify-between rounded-xl border p-4 font-mono ${
               isNight
-                ? 'border-violet-500/30 bg-violet-950/20'
-                : 'border-violet-200 bg-violet-50/80'
+                ? 'border-cyan-500/35 bg-slate-950/95 text-slate-100'
+                : 'border-slate-300 bg-slate-900 text-slate-100'
             }`}
           >
             <div>
-              <div
-                className={`flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider ${
-                  isNight ? 'text-violet-400' : 'text-violet-800'
-                }`}
-              >
-                <BookOpen aria-hidden="true" className="h-4 w-4" />
-                Plain-Language Glossary
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan-400">
+                  <Terminal aria-hidden="true" className="h-4 w-4" />
+                  <span>Wire Protocol &amp; Tensor Specification</span>
+                </div>
+                <span className="rounded bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
+                  {currentTechSpec.code} SPEC
+                </span>
               </div>
-              <h4
-                className={`mt-2 font-mono text-sm font-bold ${
-                  isNight ? 'text-white' : 'text-slate-900'
-                }`}
-              >
-                {currentStep.keyConcept}
-              </h4>
-              <p
-                className={`mt-1 text-xs leading-relaxed ${
-                  isNight ? 'text-slate-300' : 'text-slate-700'
-                }`}
-              >
-                {currentStep.keyConceptDefinition}
-              </p>
+
+              <div className="mt-3 space-y-2.5 text-xs">
+                <div className="rounded-lg border border-slate-800/90 bg-slate-900/90 p-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                    Wire Protocol &amp; Tensor Shape Specification:
+                  </div>
+                  <div className="mt-1 text-cyan-300 font-semibold break-words leading-relaxed">
+                    {currentTechSpec.wireProtocolAndTensorSpec}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-800/90 bg-slate-900/90 p-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                    Core Engineering Responsibility:
+                  </div>
+                  <div className="mt-0.5 text-emerald-300 font-semibold break-words">
+                    {currentTechSpec.coreResponsibility}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-800/90 bg-slate-900/90 p-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                    Primary Production Stack:
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {currentTechSpec.primaryProductionStack.map((tech) => (
+                      <span
+                        key={tech}
+                        className="rounded border border-violet-500/40 bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-300"
+                      >
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-800/90 bg-slate-900/90 p-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                    Dominant Hardware Bound:
+                  </div>
+                  <div className="mt-0.5 text-amber-300 font-semibold break-words">
+                    {currentTechSpec.dominantHardwareBound} · [{currentTechSpec.hardwareBottleneckBadge}]
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div
-              className={`mt-4 pt-3 border-t flex items-center justify-between font-mono text-[11px] ${
-                isNight
-                  ? 'border-slate-800/60 text-slate-400'
-                  : 'border-violet-200 text-slate-600'
-              }`}
-            >
-              <span>Visual Signal Color:</span>
-              <span
-                className={`font-semibold ${
-                  isNight ? 'text-cyan-400' : 'text-cyan-800'
-                }`}
-              >
-                {currentStep.id === 'input' || currentStep.id === 'data-lake'
-                  ? 'Cyan / Electric Blue (Data Flow)'
-                  : currentStep.id === 'output'
-                  ? 'Cyan + Warm Amber (Output)'
-                  : 'Violet / Magenta (Neural Activity)'}
+            <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Canonical Stage Mapping:</span>
+              <span className="font-bold text-cyan-400">
+                {currentTechSpec.code} ({currentStep.id})
               </span>
             </div>
           </div>
@@ -290,12 +478,14 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
               isNight ? 'text-slate-400' : 'text-slate-600'
             }`}
           >
-            All 8 Neural City Districts (Click any district to focus camera)
+            All 8 Canonical Neural City Districts (D1–D8) — Click any district to focus camera
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {DISTRICTS.map((district, index) => {
+            {DISTRICTS.map((district) => {
               const isSelected = selectedDistrict === district.id;
               const locDistrict = t.districts[district.id];
+              const spec = CANONICAL_DISTRICT_SPECS[district.id];
+              const isStandby = modeSpec.standbyDistricts.includes(district.id);
               const progress = getDistrictProgress
                 ? getDistrictProgress(district.id)
                 : null;
@@ -324,6 +514,11 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                         {DISTRICT_ICONS[district.id]}
                       </span>
                       <div className="flex items-center gap-1.5">
+                        {isStandby && (
+                          <span className="rounded border border-slate-600/80 bg-slate-800/80 px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-400">
+                            STANDBY
+                          </span>
+                        )}
                         {progress && (
                           <span
                             className={`rounded-md border px-1.5 py-0.5 font-mono text-[9px] font-bold ${
@@ -344,7 +539,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                             isNight ? 'text-amber-400' : 'text-amber-700'
                           }`}
                         >
-                          0{index + 1} · {district.metrics.throughput}
+                          {spec.code} · {district.metrics.throughput}
                         </span>
                       </div>
                     </div>

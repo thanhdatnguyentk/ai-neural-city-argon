@@ -26,6 +26,8 @@ import {
   BottleneckScenarioId,
   BOTTLENECK_SCENARIO_MAP,
 } from '@/data/bottleneck-scenarios';
+import { ARCHITECTURAL_MODE_MAP } from '@/data/pipeline-modes';
+import type { ArchitecturalPipelineModeId } from '@/types/pipeline-modes';
 
 export interface NeuralCitySceneProps {
   selectedDistrict: DistrictId | null;
@@ -49,6 +51,7 @@ export interface NeuralCitySceneProps {
   isSingularityMode?: boolean;
   activeWorkload?: WorkloadPresetId;
   activeBottleneck?: BottleneckScenarioId;
+  activePipelineMode?: ArchitecturalPipelineModeId;
   isBlueprintMode?: boolean;
   isBattleRaceActive?: boolean;
   tycoonDistrictMetrics?: Record<DistrictId, DistrictSaturationMetric>;
@@ -297,6 +300,7 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
     isSingularityMode = false,
     activeWorkload = 'multimodal-vision',
     activeBottleneck = 'none',
+    activePipelineMode = 'online-inference',
     isBlueprintMode = false,
     isBattleRaceActive = false,
     tycoonDistrictMetrics,
@@ -305,6 +309,9 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
     onHoverDistrict,
   } = props;
 
+  const modeSpec =
+    ARCHITECTURAL_MODE_MAP[activePipelineMode] ||
+    ARCHITECTURAL_MODE_MAP['online-inference'];
   const bottleneckSpec =
     BOTTLENECK_SCENARIO_MAP[activeBottleneck] ||
     BOTTLENECK_SCENARIO_MAP['none'];
@@ -521,12 +528,17 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
             isSingularityMode={isSingularityMode}
             activeWorkload={activeWorkload}
             activeBottleneck={activeBottleneck}
+            activePipelineMode={activePipelineMode}
             isBlueprintMode={isBlueprintMode}
             isBattleRaceActive={isBattleRaceActive}
           />
 
           {/* The 8 Core AI Pipeline Districts */}
           {DISTRICTS.map((district, index) => {
+            const isStandbyInMode = modeSpec.standbyDistricts.includes(district.id);
+            const standbyBadgeText = isStandbyInMode
+              ? modeSpec.standbyBadgeText
+              : null;
             const isPipelineHighlighted =
               activePipelineStage !== null &&
               district.pipelineStage === activePipelineStage;
@@ -567,6 +579,8 @@ export const NeuralCityScene: React.FC<NeuralCitySceneProps> = (props) => {
                 isBlueprintMode={isBlueprintMode}
                 isBottleneckTarget={isBottleneckTarget}
                 isAdversarialShieldActive={isAdversarialShieldActive}
+                isStandbyInMode={isStandbyInMode}
+                standbyBadgeText={standbyBadgeText}
                 tycoonMetric={tycoonMetric}
                 onSelect={(id) => onSelectDistrict(id)}
                 onDoubleClick={onDoubleClickDistrict}
