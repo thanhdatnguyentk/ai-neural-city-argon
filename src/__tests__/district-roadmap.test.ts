@@ -30,6 +30,17 @@ import {
   DISTRICT_QUIZZES,
   getDistrictQuizzes,
 } from '../data/district-quizzes.ts';
+import { LOCALES } from '../data/locales.ts';
+import {
+  STACK_CATALOG,
+  DEFAULT_STACK_SELECTIONS,
+} from '../data/stack-catalog.ts';
+import { generateBoilerplateBundle } from '../lib/boilerplate-generator.ts';
+import { CASE_STUDIES } from '../data/case-studies.ts';
+import {
+  synthesizeArchitectPlanFromPrompt,
+  buildTourFromCaseStudy,
+} from '../hooks/useArchitectTour.ts';
 
 describe('District Zero-to-Hero Roadmap & Landmarks Dataset', () => {
   it('maps all 8 existing Neural City DistrictIds with exact accent colors', () => {
@@ -267,3 +278,69 @@ describe('Interactive Systems Sandbox: Workloads, Chaos Bottlenecks, Quizzes & V
     assert.equal(resolvedTelemetry.systemStatus, 'OPTIMAL');
   });
 });
+
+describe('Phase 1 Ecosystem: Trilingual i18n, Stack Builder, Architect Agent & Case Studies', () => {
+  it('provides complete EN, VI, and JA translations for all 8 districts', () => {
+    for (const lang of ['en', 'vi', 'ja'] as const) {
+      const dict = LOCALES[lang];
+      assert.ok(dict.header.appTitle.length > 0);
+      for (const d of DISTRICTS) {
+        assert.ok(
+          dict.districts[d.id]?.name.length > 0,
+          `Missing ${lang} name for ${d.id}`
+        );
+        assert.ok(
+          dict.districts[d.id]?.tagline.length > 0,
+          `Missing ${lang} tagline for ${d.id}`
+        );
+      }
+    }
+  });
+
+  it('synthesizes valid docker-compose.yml, Makefile, Mermaid diagram, and SLA report', () => {
+    assert.equal(STACK_CATALOG.length, 8);
+    for (const cat of STACK_CATALOG) {
+      assert.equal(cat.options.length, 3);
+    }
+
+    const bundle = generateBoilerplateBundle(DEFAULT_STACK_SELECTIONS);
+    assert.ok(bundle.dockerComposeYaml.includes('services:'));
+    assert.ok(bundle.dockerComposeYaml.includes('api-gateway:'));
+    assert.ok(bundle.dockerComposeYaml.includes('vector-vault:'));
+    assert.ok(bundle.dockerComposeYaml.includes('inference-engine:'));
+    assert.ok(bundle.makefile.includes('index-vectors:'));
+    assert.ok(bundle.makefile.includes('export-onnx:'));
+    assert.ok(bundle.makefile.includes('eval-ragas:'));
+    assert.ok(bundle.mermaidDiagram.startsWith('flowchart LR'));
+    assert.ok(bundle.slaEstimate.estimatedP99LatencyMs > 0);
+    assert.ok(bundle.slaEstimate.totalVramGb > 0);
+  });
+
+  it('synthesizes 3D camera tour plans from natural language prompts and Case Studies', () => {
+    const videoPlan = synthesizeArchitectPlanFromPrompt(
+      'Design a multimodal video search system with CLIP and FAISS under 30ms'
+    );
+    assert.ok(videoPlan.tourSteps.length >= 4);
+    assert.equal(videoPlan.stackSelectionMap['data-lake'], 'd2-faiss-es');
+
+    const mcpPlan = synthesizeArchitectPlanFromPrompt(
+      'Build an Agentic RAG system with MCP and pgvector'
+    );
+    assert.ok(mcpPlan.tourSteps.length >= 4);
+    assert.equal(mcpPlan.stackSelectionMap['nlp-district'], 'd6-mcp-langgraph');
+
+    assert.equal(CASE_STUDIES.length, 3);
+    for (const study of CASE_STUDIES) {
+      assert.ok(study.title.en.length > 0);
+      assert.ok(study.title.vi.length > 0);
+      assert.ok(study.title.ja.length > 0);
+      assert.equal(study.metrics.length, 3);
+      const tourPlan = buildTourFromCaseStudy(study, 'vi');
+      assert.equal(
+        tourPlan.tourSteps.length,
+        study.districtArchitecture.length
+      );
+    }
+  });
+});
+

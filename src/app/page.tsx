@@ -16,6 +16,8 @@ import {
   Wrench,
   Layers,
   Flame,
+  BookOpen,
+  Code2,
 } from 'lucide-react';
 import {
   DISTRICTS,
@@ -35,11 +37,28 @@ import {
   SimulationProvider,
   useSimulation,
 } from '@/context/SimulationContext';
+import {
+  LanguageProvider,
+  useLanguage,
+} from '@/context/LanguageContext';
+import type { LanguageCode } from '@/data/locales';
+import {
+  DEFAULT_STACK_SELECTIONS,
+  StackSelectionMap,
+} from '@/data/stack-catalog';
+import { CaseStudyBlueprint } from '@/data/case-studies';
+import {
+  useArchitectTour,
+  buildTourFromCaseStudy,
+} from '@/hooks/useArchitectTour';
 import { DistrictInfoPanel } from '@/components/DistrictInfoPanel';
 import {
   DistrictDeepDiveDrawer,
   DeepDiveTab,
 } from '@/components/DistrictDeepDiveDrawer';
+import { StackBuilderModal } from '@/components/StackBuilderModal';
+import { ArchitectAgentDock } from '@/components/ArchitectAgentDock';
+import { CaseStudiesModal } from '@/components/CaseStudiesModal';
 import { SceneControls } from '@/components/SceneControls';
 import { PipelineTimeline } from '@/components/PipelineTimeline';
 import { SystemStatusPanel, HeroStatusHUD } from '@/components/SystemStatusPanel';
@@ -63,8 +82,15 @@ const NeuralCityScene = dynamic(
 const VALID_DISTRICTS = new Set<string>(DISTRICTS.map((d) => d.id));
 const VALID_TABS = new Set<string>(['roadmap', 'landmarks', 'quiz', 'sandbox']);
 const VALID_WORKLOADS = new Set<string>(WORKLOAD_PRESETS.map((w) => w.id));
+const LANGUAGE_OPTIONS: { code: LanguageCode; label: string }[] = [
+  { code: 'en', label: 'EN' },
+  { code: 'vi', label: 'VI' },
+  { code: 'ja', label: '日本語' },
+];
 
 function NeuralCitySandboxApp() {
+  const { lang, setLang, t } = useLanguage();
+
   const [selectedDistrict, setSelectedDistrict] = useState<DistrictId | null>(null);
   const [hoveredDistrict, setHoveredDistrict] = useState<DistrictId | null>(null);
   const [activePipelineStage, setActivePipelineStage] = useState<PipelineStageId>('input');
@@ -83,6 +109,14 @@ function NeuralCitySandboxApp() {
   const [highlightedMilestoneId, setHighlightedMilestoneId] = useState<string | null>(null);
   const [activeKeyFlash, setActiveKeyFlash] = useState<string | null>(null);
   const [urlHydrated, setUrlHydrated] = useState<boolean>(false);
+
+  // Phase 1 Studio State: Stack Builder & Case Studies
+  const [stackSelections, setStackSelections] = useState<StackSelectionMap>(
+    DEFAULT_STACK_SELECTIONS
+  );
+  const [isStackBuilderOpen, setIsStackBuilderOpen] = useState<boolean>(false);
+  const [isCaseStudiesOpen, setIsCaseStudiesOpen] = useState<boolean>(false);
+  const [activeCaseStudyId, setActiveCaseStudyId] = useState<string | null>(null);
 
   const {
     activeWorkload,
@@ -126,6 +160,32 @@ function NeuralCitySandboxApp() {
 
   const activeWorkloadObj = WORKLOAD_PRESET_MAP[activeWorkload];
   const activeBottleneckObj = BOTTLENECK_SCENARIO_MAP[activeBottleneck];
+
+  // Module 2: AI City Architect Tour Controller
+  const focusDistrictForTour = useCallback((districtId: DistrictId) => {
+    setSelectedDistrict(districtId);
+    setActivePipelineStage(DISTRICT_MAP[districtId].pipelineStage);
+    setHeroMinimized(true);
+    setIsDrawerOpen(false);
+  }, []);
+
+  const {
+    activePlan,
+    setActivePlan,
+    isTourRunning,
+    isTourPaused,
+    setIsTourPaused,
+    currentStepIndex,
+    currentTourStep,
+    startTour,
+    exitTour,
+    nextStep,
+    prevStep,
+    selectStepIndex,
+  } = useArchitectTour({
+    onFocusDistrict: focusDistrictForTour,
+    onHighlightConduitDistrict: setHighlightedFlowDistrict,
+  });
 
   const triggerKeyFlash = useCallback((keyLabel: string) => {
     setActiveKeyFlash(keyLabel);
@@ -276,6 +336,42 @@ function NeuralCitySandboxApp() {
     [reducedMotion]
   );
 
+  const handleSimulateCaseStudy = useCallback(
+    (study: CaseStudyBlueprint) => {
+      setActiveCaseStudyId(study.id);
+      setActiveWorkload(study.workloadPresetId);
+      setStackSelections(study.stackSelections);
+      setIsCaseStudiesOpen(false);
+      setIsDrawerOpen(false);
+      setHeroMinimized(true);
+      const tourPlan = buildTourFromCaseStudy(study, lang);
+      startTour(tourPlan);
+      cityViewportRef.current?.scrollIntoView({
+        behavior: reducedMotion ? 'auto' : 'smooth',
+      });
+    },
+    [lang, reducedMotion, setActiveWorkload, startTour]
+  );
+
+  const handleInspectCaseStudyStack = useCallback(
+    (study: CaseStudyBlueprint) => {
+      setActiveCaseStudyId(study.id);
+      setActiveWorkload(study.workloadPresetId);
+      setStackSelections(study.stackSelections);
+      setIsCaseStudiesOpen(false);
+      setIsStackBuilderOpen(true);
+    },
+    [setActiveWorkload]
+  );
+
+  const handleLoadPlanStackIntoBuilder = useCallback(
+    (stackMap: StackSelectionMap) => {
+      setStackSelections(stackMap);
+      setIsStackBuilderOpen(true);
+    },
+    []
+  );
+
   const handleToggleDataFlow = useCallback((id: DistrictId) => {
     setHighlightedFlowDistrict((prev) => (prev === id ? null : id));
   }, []);
@@ -285,11 +381,12 @@ function NeuralCitySandboxApp() {
     setHighlightedFlowDistrict(null);
     setHighlightedMilestoneId(null);
     setDemoStepIndex(null);
+    exitTour();
     setIsDrawerOpen(false);
     setCameraZoomDelta(0);
     setCameraAzimuthDelta(0);
     setCameraResetTrigger((c) => c + 1);
-  }, []);
+  }, [exitTour]);
 
   const handleRunDemo = useCallback(() => {
     if (demoStepIndex !== null) {
@@ -349,7 +446,13 @@ function NeuralCitySandboxApp() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         triggerKeyFlash('Esc');
-        if (isDrawerOpen) {
+        if (isStackBuilderOpen) {
+          setIsStackBuilderOpen(false);
+        } else if (isCaseStudiesOpen) {
+          setIsCaseStudiesOpen(false);
+        } else if (isTourRunning) {
+          exitTour();
+        } else if (isDrawerOpen) {
           setIsDrawerOpen(false);
         } else {
           handleSelectDistrict(null);
@@ -396,6 +499,10 @@ function NeuralCitySandboxApp() {
     handleResetCamera,
     toggleBlueprintMode,
     triggerKeyFlash,
+    exitTour,
+    isStackBuilderOpen,
+    isCaseStudiesOpen,
+    isTourRunning,
     isDrawerOpen,
     selectedDistrict,
   ]);
@@ -409,8 +516,8 @@ function NeuralCitySandboxApp() {
     ? DISTRICT_MAP[hoveredDistrict]
     : null;
 
-  // Step 1 Guardrail: Prevent HUD overlap when DistrictDeepDiveDrawer is open
-  const isLeftHeroCollapsed = heroMinimized || isDrawerOpen;
+  // Step 1 Guardrail: Prevent HUD overlap when DistrictDeepDiveDrawer or Tour is open
+  const isLeftHeroCollapsed = heroMinimized || isDrawerOpen || isTourRunning;
 
   return (
     <div
@@ -428,7 +535,7 @@ function NeuralCitySandboxApp() {
             : 'border-slate-300/80 bg-white/90'
         }`}
       >
-        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-2.5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-2 px-3 py-2.5 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -440,14 +547,14 @@ function NeuralCitySandboxApp() {
               </span>
               <div>
                 <span className="block font-mono text-xs font-bold tracking-wider uppercase">
-                  AI Neural City
+                  {t.header.appTitle}
                 </span>
                 <span
                   className={`block font-mono text-[10px] ${
                     isNight ? 'text-cyan-400' : 'text-cyan-700 font-semibold'
                   }`}
                 >
-                  Interactive Systems Sandbox
+                  {t.header.appSubtitle}
                 </span>
               </div>
             </button>
@@ -455,36 +562,88 @@ function NeuralCitySandboxApp() {
 
           <nav
             aria-label="Primary Navigation"
-            className="hidden md:flex items-center gap-6 font-mono text-xs"
+            className="hidden xl:flex items-center gap-5 font-mono text-xs"
           >
             <a
               href="#interactive-city"
               className="rounded px-1.5 py-0.5 hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
-              01. Interactive City
+              {t.header.navCity}
             </a>
             <a
               href="#ai-pipeline-section"
               className="rounded px-1.5 py-0.5 hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
-              02. AI Pipeline
+              {t.header.navPipeline}
             </a>
             <a
               href="#system-activity-section"
               className="rounded px-1.5 py-0.5 hover:text-cyan-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
-              03. Chaos & Telemetry
+              {t.header.navTelemetry}
             </a>
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {/* Step 1: Trilingual Language Switcher [ EN | VI | 日本語 ] */}
+            <div
+              role="group"
+              aria-label="Language Switcher"
+              className={`inline-flex items-center rounded-xl border p-0.5 font-mono text-[10px] font-bold ${
+                isNight
+                  ? 'border-slate-800 bg-slate-950/90'
+                  : 'border-slate-300 bg-slate-100'
+              }`}
+            >
+              {LANGUAGE_OPTIONS.map((opt) => {
+                const active = lang === opt.code;
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => setLang(opt.code)}
+                    aria-pressed={active}
+                    className={`rounded-lg px-2 py-1 transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-cyan-400 text-slate-950 font-bold'
+                        : isNight
+                        ? 'text-slate-400 hover:text-white'
+                        : 'text-slate-600 hover:text-slate-950'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Step 2: Stack Builder & Export Code Button */}
+            <button
+              type="button"
+              onClick={() => setIsStackBuilderOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/60 bg-cyan-500/15 px-2.5 py-1.5 font-mono text-[11px] font-bold text-cyan-300 hover:bg-cyan-400 hover:text-slate-950 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            >
+              <Code2 aria-hidden="true" className="h-3.5 w-3.5" />
+              <span>⚡ {t.header.btnStackBuilder}</span>
+            </button>
+
+            {/* Step 4: Applied Engineering Case Studies Button */}
+            <button
+              type="button"
+              onClick={() => setIsCaseStudiesOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/60 bg-amber-500/15 px-2.5 py-1.5 font-mono text-[11px] font-bold text-amber-300 hover:bg-amber-400 hover:text-slate-950 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+            >
+              <BookOpen aria-hidden="true" className="h-3.5 w-3.5" />
+              <span>📐 {t.header.btnCaseStudies}</span>
+            </button>
+
             {/* Blueprint / X-Ray Quick Toggle in Header */}
             <button
               type="button"
               onClick={toggleBlueprintMode}
               aria-pressed={isBlueprintMode}
               title="Toggle Blueprint / X-Ray Architecture Schematic Mode [B]"
-              className={`hidden sm:inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 font-mono text-[11px] font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+              className={`hidden md:inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 font-mono text-[11px] font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                 activeKeyFlash === 'B' ? 'ring-2 ring-cyan-400 scale-105' : ''
               } ${
                 isBlueprintMode
@@ -495,13 +654,13 @@ function NeuralCitySandboxApp() {
               }`}
             >
               <Layers aria-hidden="true" className="h-3.5 w-3.5" />
-              <span>Blueprint [B]</span>
+              <span>{t.header.btnBlueprint}</span>
             </button>
 
             {/* Singularity Mode 100% City Mastery Banner & Controls */}
             {isSingularityMode && (
-              <div className="hidden lg:flex items-center gap-1.5 rounded-xl border border-amber-400/70 bg-amber-500/15 px-2.5 py-1 font-mono text-[10px] font-bold text-amber-300 shadow-lg shadow-amber-500/20">
-                <span>⚡ NEURAL ARCHITECT: 100% CITY MASTERY</span>
+              <div className="hidden 2xl:flex items-center gap-1.5 rounded-xl border border-amber-400/70 bg-amber-500/15 px-2.5 py-1 font-mono text-[10px] font-bold text-amber-300 shadow-lg shadow-amber-500/20">
+                <span>⚡ 100% MASTERY</span>
                 <button
                   type="button"
                   onClick={() =>
@@ -509,7 +668,7 @@ function NeuralCitySandboxApp() {
                   }
                   className="ml-1 rounded-md border border-amber-400/50 bg-amber-400/20 px-1.5 py-0.5 text-[9px] text-white hover:bg-amber-400 hover:text-slate-950 transition-colors cursor-pointer"
                 >
-                  Replay Pulse
+                  Pulse
                 </button>
                 <button
                   type="button"
@@ -545,27 +704,8 @@ function NeuralCitySandboxApp() {
             >
               <Award aria-hidden="true" className="h-3.5 w-3.5" />
               <span>
-                Roadmap · {cityMastery.completed}/{cityMastery.total}
+                {t.header.btnRoadmap} · {cityMastery.completed}/{cityMastery.total}
               </span>
-            </button>
-
-            {/* Reduced Motion Toggle */}
-            <button
-              type="button"
-              onClick={() => setReducedMotion((r) => !r)}
-              aria-pressed={reducedMotion}
-              title="Toggle Reduced Motion"
-              className={`rounded-xl border px-2.5 py-1.5 font-mono text-[11px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-                reducedMotion
-                  ? isNight
-                    ? 'border-amber-400/60 bg-amber-500/20 text-amber-300'
-                    : 'border-amber-600 bg-amber-100 text-amber-900 font-semibold'
-                  : isNight
-                  ? 'border-slate-800 bg-slate-900/80 text-slate-300 hover:border-slate-700'
-                  : 'border-slate-300 bg-slate-100 text-slate-700'
-              }`}
-            >
-              {reducedMotion ? 'Reduced Motion: ON' : 'Motion: Standard'}
             </button>
           </div>
         </div>
@@ -617,10 +757,10 @@ function NeuralCitySandboxApp() {
           <div className="pointer-events-none relative z-20 mx-auto flex h-full max-w-[1600px] flex-col justify-between p-4 sm:p-6">
             {/* TOP ROW: Compact Hero Overlay Card (Left) + District Detail Panel (Right) */}
             <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
-              {/* Left Column: Compact Hero Panel, Packet Tracer, Chaos Simulator & Live Telemetry */}
+              {/* Left Column: Compact Hero Panel, Packet Tracer, Chaos Simulator, AI Architect Dock & Live Telemetry */}
               <div
                 className={`flex flex-col gap-2.5 w-full transition-all duration-300 ${
-                  isDrawerOpen ? 'max-w-[330px]' : 'max-w-[380px]'
+                  isDrawerOpen ? 'max-w-[330px]' : 'max-w-[385px]'
                 }`}
               >
                 {!isLeftHeroCollapsed ? (
@@ -661,11 +801,11 @@ function NeuralCitySandboxApp() {
                         aria-hidden="true"
                         className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse"
                       />
-                      SYSTEMS ENGINEERING SANDBOX
+                      {t.hero.badge}
                     </div>
 
                     <h1 className="mt-2 text-2xl font-bold tracking-tight">
-                      Inside the Neural City
+                      {t.hero.title}
                     </h1>
 
                     <p
@@ -673,7 +813,7 @@ function NeuralCitySandboxApp() {
                         isNight ? 'text-slate-300' : 'text-slate-600'
                       }`}
                     >
-                      Trace live AI workloads, inject production chaos bottlenecks, and verify engineering mastery across 8 districts.
+                      {t.hero.subtitle}
                     </p>
 
                     {/* Step 2: Interactive Workload Simulator ("Packet Tracer") */}
@@ -687,7 +827,7 @@ function NeuralCitySandboxApp() {
                       <div className="flex items-center justify-between font-mono text-[10px] uppercase text-cyan-400">
                         <span className="flex items-center gap-1 font-bold">
                           <Terminal aria-hidden="true" className="h-3 w-3" />
-                          Packet Tracer Workload
+                          {t.hero.workloadLabel}
                         </span>
                         <span
                           className="rounded px-1.5 py-0.5 text-[9px] font-bold"
@@ -750,7 +890,7 @@ function NeuralCitySandboxApp() {
                           }`}
                         >
                           <Flame aria-hidden="true" className="h-3 w-3" />
-                          Chaos Fault Injection
+                          {t.hero.chaosLabel}
                         </span>
                         <span className="text-[9px] text-slate-400">
                           {activeBottleneckObj.shortLabel}
@@ -789,7 +929,7 @@ function NeuralCitySandboxApp() {
                         className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-400 px-3.5 py-2 font-mono text-xs font-bold text-slate-950 shadow-lg shadow-cyan-500/25 hover:bg-cyan-300 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                       >
                         <Compass aria-hidden="true" className="h-3.5 w-3.5" />
-                        <span>Explore the city</span>
+                        <span>{t.hero.exploreBtn}</span>
                       </button>
 
                       <button
@@ -802,7 +942,7 @@ function NeuralCitySandboxApp() {
                         }`}
                       >
                         <GitBranch aria-hidden="true" className="h-3.5 w-3.5 text-cyan-400" />
-                        <span>View the AI pipeline</span>
+                        <span>{t.hero.pipelineBtn}</span>
                       </button>
                     </div>
                   </motion.div>
@@ -824,7 +964,7 @@ function NeuralCitySandboxApp() {
                         aria-hidden="true"
                         className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse"
                       />
-                      <span>Workload & Chaos Sandbox</span>
+                      <span>{t.hero.minimizedPill}</span>
                       <Maximize2 aria-hidden="true" className="h-3.5 w-3.5 text-cyan-400" />
                     </button>
                   </div>
@@ -893,6 +1033,24 @@ function NeuralCitySandboxApp() {
                   activeBottleneck={activeBottleneck}
                 />
 
+                {/* Step 3.2: AI City Architect Agent Trigger & Command Bar */}
+                <ArchitectAgentDock
+                  isNight={isNight}
+                  activePlan={activePlan}
+                  isTourRunning={isTourRunning}
+                  isTourPaused={isTourPaused}
+                  currentStepIndex={currentStepIndex}
+                  currentTourStep={currentTourStep}
+                  onSelectPlan={setActivePlan}
+                  onStartTour={startTour}
+                  onToggleTourPause={() => setIsTourPaused((p) => !p)}
+                  onNextStep={nextStep}
+                  onPrevStep={prevStep}
+                  onSelectStepIndex={selectStepIndex}
+                  onExitTour={exitTour}
+                  onLoadStackIntoBuilder={handleLoadPlanStackIntoBuilder}
+                />
+
                 {/* Live Demo Journey Stepper Banner */}
                 <AnimatePresence>
                   {activeDemoStep && (
@@ -920,24 +1078,6 @@ function NeuralCitySandboxApp() {
                       </p>
                       <div className="mt-2 rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1.5 font-mono text-[10px] text-cyan-300">
                         {activeDemoStep.packetSample}
-                      </div>
-                      {/* Step Progress Dots */}
-                      <div className="mt-2.5 flex items-center gap-1.5">
-                        {DEMO_JOURNEY_STEPS.map((st) => (
-                          <button
-                            key={st.stepIndex}
-                            type="button"
-                            onClick={() => setDemoStepIndex(st.stepIndex)}
-                            aria-label={`Jump to demo step ${st.stepIndex + 1}`}
-                            className={`h-1.5 flex-1 rounded-full transition-all cursor-pointer ${
-                              st.stepIndex === demoStepIndex
-                                ? 'bg-amber-400'
-                                : st.stepIndex < (demoStepIndex ?? 0)
-                                ? 'bg-cyan-400/70'
-                                : 'bg-slate-800'
-                            }`}
-                          />
-                        ))}
                       </div>
                     </motion.div>
                   )}
@@ -967,6 +1107,8 @@ function NeuralCitySandboxApp() {
                     onMinimizeToCompactHud={() => setIsDrawerOpen(false)}
                     onSelectDistrict={(id) => handleSelectDistrict(id)}
                     onToggleDataFlow={handleToggleDataFlow}
+                    onOpenStackBuilder={() => setIsStackBuilderOpen(true)}
+                    onOpenCaseStudies={() => setIsCaseStudiesOpen(true)}
                   />
                 ) : activeDistrictObj ? (
                   <DistrictInfoPanel
@@ -999,14 +1141,15 @@ function NeuralCitySandboxApp() {
                               isNight ? 'text-cyan-400' : 'text-cyan-700'
                             }`}
                           >
-                            {hoveredDistrictObj.name}:
+                            {t.districts[hoveredDistrictObj.id]?.name ||
+                              hoveredDistrictObj.name}
+                            :
                           </strong>{' '}
-                          {hoveredDistrictObj.tagline}
+                          {t.districts[hoveredDistrictObj.id]?.tagline ||
+                            hoveredDistrictObj.tagline}
                         </span>
                       ) : (
-                        <span className="font-mono">
-                          Select a district [1–8] · Press [B] for Blueprint X-Ray · Drag to orbit
-                        </span>
+                        <span className="font-mono">{t.hero.orbitHint}</span>
                       )}
                     </div>
                   </div>
@@ -1031,7 +1174,7 @@ function NeuralCitySandboxApp() {
                     isNight ? 'text-slate-400' : 'text-slate-600'
                   }`}
                 >
-                  Select a district:
+                  {t.hero.selectDistrictPrompt}
                 </span>
                 {DISTRICTS.map((d, idx) => {
                   const active = selectedDistrict === d.id;
@@ -1042,6 +1185,7 @@ function NeuralCitySandboxApp() {
                   const isKeyFlashed = activeKeyFlash === keyNum;
                   const isBottleneckTarget =
                     activeBottleneckObj.targetDistrictId === d.id;
+                  const locDistrict = t.districts[d.id];
 
                   return (
                     <button
@@ -1079,7 +1223,7 @@ function NeuralCitySandboxApp() {
                         }}
                       />
                       <span className="opacity-65 text-[9px]">0{idx + 1}</span>
-                      <span>{d.shortName}</span>
+                      <span>{locDistrict?.shortName || d.shortName}</span>
                       {isBottleneckTarget ? (
                         <span className="ml-0.5 text-[10px] text-rose-400 font-bold">
                           ⚠
@@ -1186,6 +1330,27 @@ function NeuralCitySandboxApp() {
         />
       </main>
 
+      {/* ==================== PHASE 1 STUDIO MODALS ==================== */}
+      <StackBuilderModal
+        isOpen={isStackBuilderOpen}
+        isNight={isNight}
+        selections={stackSelections}
+        onUpdateSelection={(districtId, optionId) =>
+          setStackSelections((prev) => ({ ...prev, [districtId]: optionId }))
+        }
+        onResetDefaults={() => setStackSelections(DEFAULT_STACK_SELECTIONS)}
+        onClose={() => setIsStackBuilderOpen(false)}
+      />
+
+      <CaseStudiesModal
+        isOpen={isCaseStudiesOpen}
+        isNight={isNight}
+        activeCaseStudyId={activeCaseStudyId}
+        onSimulateCaseStudy={handleSimulateCaseStudy}
+        onInspectInStackBuilder={handleInspectCaseStudyStack}
+        onClose={() => setIsCaseStudiesOpen(false)}
+      />
+
       {/* ==================== FOOTER ==================== */}
       <footer
         className={`border-t py-8 px-4 sm:px-6 lg:px-10 font-mono text-xs transition-colors ${
@@ -1204,7 +1369,7 @@ function NeuralCitySandboxApp() {
             >
               AI NEURAL CITY
             </span>
-            <span>— Interactive 3D Isometric AI Systems Sandbox</span>
+            <span>— {t.header.appSubtitle}</span>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-[11px]">
             <span
@@ -1252,8 +1417,10 @@ function NeuralCitySandboxApp() {
 
 export default function HomePage() {
   return (
-    <SimulationProvider>
-      <NeuralCitySandboxApp />
-    </SimulationProvider>
+    <LanguageProvider>
+      <SimulationProvider>
+        <NeuralCitySandboxApp />
+      </SimulationProvider>
+    </LanguageProvider>
   );
 }

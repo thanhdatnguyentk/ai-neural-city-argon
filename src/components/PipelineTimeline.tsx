@@ -21,6 +21,7 @@ import {
   PipelineStageId,
 } from '@/data/districts';
 import type { ProgressStats } from '@/hooks/useRoadmapProgress';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface PipelineTimelineProps {
   activeStage: PipelineStageId;
@@ -52,8 +53,10 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
   onSelectDistrictAndScroll,
   onOpenRoadmapDrawer,
 }) => {
+  const { t } = useLanguage();
   const currentStep =
     PIPELINE_STEPS.find((s) => s.id === activeStage) || PIPELINE_STEPS[0];
+  const currentLocalizedStage = t.pipelineStages[currentStep.id];
 
   return (
     <section
@@ -76,20 +79,20 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                   : 'border-cyan-600/30 bg-cyan-50 text-cyan-800'
               }`}
             >
-              AI Architecture Walkthrough
+              AI Architecture Walkthrough ({t.nativeLabel})
             </span>
             <h2
               id="pipeline-heading"
               className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight"
             >
-              How Information Becomes Intelligence
+              {t.hero.title} — {t.header.navPipeline}
             </h2>
             <p
               className={`mt-1.5 max-w-2xl text-sm ${
                 isNight ? 'text-slate-300' : 'text-slate-600'
               }`}
             >
-              Select any stage in the pipeline below to highlight its matching district in the 3D city and see how raw data is transformed into a finished response.
+              {t.hero.subtitle}
             </p>
           </div>
           <div
@@ -97,7 +100,9 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
               isNight ? 'text-cyan-400' : 'text-cyan-700'
             }`}
           >
-            Input → Data Lake → Training → Model Core → Inference → Output
+            {t.pipelineStages.input.label} → {t.pipelineStages['data-lake'].label} →{' '}
+            {t.pipelineStages.training.label} → {t.pipelineStages['model-core'].label} →{' '}
+            {t.pipelineStages.inference.label} → {t.pipelineStages.output.label}
           </div>
         </div>
 
@@ -105,6 +110,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {PIPELINE_STEPS.map((step, idx) => {
             const isActive = activeStage === step.id;
+            const locStage = t.pipelineStages[step.id];
             return (
               <button
                 key={step.id}
@@ -153,14 +159,14 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                       isNight ? 'text-cyan-400' : 'text-cyan-800'
                     }`}
                   >
-                    {step.label}
+                    {locStage?.label || step.label}
                   </div>
                   <p
                     className={`mt-1 text-xs line-clamp-2 ${
                       isNight ? 'text-slate-300' : 'text-slate-600'
                     }`}
                   >
-                    {step.summary}
+                    {locStage?.summary || step.summary}
                   </p>
                 </div>
               </button>
@@ -184,9 +190,11 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
             >
               <span>Stage {currentStep.stepNumber} of 6</span>
               <span aria-hidden="true">•</span>
-              <span>Active City District Highlighted</span>
+              <span>{t.districts[currentStep.districtId]?.name}</span>
             </div>
-            <h3 className="text-xl font-bold">{currentStep.title}</h3>
+            <h3 className="text-xl font-bold">
+              {currentLocalizedStage?.title || currentStep.title}
+            </h3>
             <p
               className={`text-sm leading-relaxed ${
                 isNight ? 'text-slate-200' : 'text-slate-700'
@@ -287,6 +295,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {DISTRICTS.map((district, index) => {
               const isSelected = selectedDistrict === district.id;
+              const locDistrict = t.districts[district.id];
               const progress = getDistrictProgress
                 ? getDistrictProgress(district.id)
                 : null;
@@ -346,14 +355,14 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                           : 'group-hover:text-cyan-700'
                       }`}
                     >
-                      {district.name}
+                      {locDistrict?.name || district.name}
                     </h4>
                     <p
                       className={`mt-1 text-xs leading-relaxed ${
                         isNight ? 'text-slate-300' : 'text-slate-600'
                       }`}
                     >
-                      {district.tagline}
+                      {locDistrict?.tagline || district.tagline}
                     </p>
                   </div>
 
@@ -393,7 +402,7 @@ export const PipelineTimeline: React.FC<PipelineTimelineProps> = ({
                       }`}
                     >
                       <Layers aria-hidden="true" className="h-3 w-3" />
-                      <span>View Roadmap &amp; Landmarks</span>
+                      <span>{t.header.btnRoadmap}</span>
                     </button>
                   </div>
                 </div>

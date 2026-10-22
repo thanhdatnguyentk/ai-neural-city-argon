@@ -41,6 +41,7 @@ import type {
   VramCalculatorState,
   ComputedSimulationTelemetry,
 } from '../data/bottleneck-scenarios.ts';
+import { useLanguage } from '../context/LanguageContext';
 
 export type DeepDiveTab = 'roadmap' | 'landmarks' | 'quiz' | 'sandbox';
 
@@ -64,6 +65,8 @@ export interface DistrictDeepDiveDrawerProps {
   onMinimizeToCompactHud: () => void;
   onSelectDistrict: (districtId: DistrictId) => void;
   onToggleDataFlow: (districtId: DistrictId) => void;
+  onOpenStackBuilder?: () => void;
+  onOpenCaseStudies?: () => void;
 }
 
 const CATEGORY_BADGE_STYLES: Record<
@@ -136,7 +139,10 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
   onMinimizeToCompactHud,
   onSelectDistrict,
   onToggleDataFlow,
+  onOpenStackBuilder,
+  onOpenCaseStudies,
 }) => {
+  const { t } = useLanguage();
   const [internalTab, setInternalTab] = useState<DeepDiveTab>('roadmap');
   const currentTab = controlledTab ?? internalTab;
 
@@ -261,11 +267,29 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                   isNight ? 'text-slate-400' : 'text-slate-600'
                 }`}
               >
-                {deepDive.pipelineStageName}
+                {t.districts[districtId]?.domainTitle || deepDive.pipelineStageName}
               </span>
             </div>
 
             <div className="flex items-center gap-1">
+              {onOpenCaseStudies && (
+                <button
+                  type="button"
+                  onClick={onOpenCaseStudies}
+                  className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-amber-400/50 bg-amber-500/15 px-2 py-1 font-mono text-[10px] font-bold text-amber-300 hover:bg-amber-400 hover:text-slate-950 transition-colors cursor-pointer"
+                >
+                  <span>📐 {t.header.btnCaseStudies}</span>
+                </button>
+              )}
+              {onOpenStackBuilder && (
+                <button
+                  type="button"
+                  onClick={onOpenStackBuilder}
+                  className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-cyan-400/50 bg-cyan-500/15 px-2 py-1 font-mono text-[10px] font-bold text-cyan-300 hover:bg-cyan-400 hover:text-slate-950 transition-colors cursor-pointer"
+                >
+                  <span>⚡ {t.header.btnStackBuilder}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onSelectDistrict(prevDistrict.id)}
@@ -337,14 +361,14 @@ export const DistrictDeepDiveDrawer: React.FC<DistrictDeepDiveDrawerProps> = ({
                     boxShadow: `0 0 12px ${deepDive.accentColorHex}`,
                   }}
                 />
-                {deepDive.districtName}
+                {t.districts[districtId]?.name || deepDive.districtName}
               </h2>
               <p
                 className={`mt-0.5 text-xs leading-relaxed line-clamp-2 ${
                   isNight ? 'text-slate-300' : 'text-slate-600'
                 }`}
               >
-                {deepDive.tagline}
+                {t.districts[districtId]?.tagline || deepDive.tagline}
               </p>
             </div>
 
